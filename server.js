@@ -101,6 +101,27 @@ function getTodayDateNum() {
 
 // API Endpoints
 
+// Check daily challenge status
+app.get('/api/daily-challenge/status/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    const dateNum = getTodayDateNum();
+    
+    // Check if player has completed today's challenge
+    const hasCompleted = await contract.hasCompletedDailyChallenge(dateNum, address);
+    
+    res.json({
+      success: true,
+      dateNum,
+      hasCompleted,
+      canPlay: !hasCompleted
+    });
+  } catch (error) {
+    console.error('Error checking daily challenge status:', error);
+    res.status(500).json({ success: false, error: 'Failed to check status' });
+  }
+});
+
 // Start infinite mode round
 app.post('/api/round/start/infinite', async (req, res) => {
   try {
@@ -158,6 +179,16 @@ app.post('/api/round/start/daily', async (req, res) => {
     }
     
     const dateNum = getTodayDateNum();
+    
+    // Check if player already completed today's challenge
+    const hasCompleted = await contract.hasCompletedDailyChallenge(dateNum, playerAddress);
+    if (hasCompleted) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'ALREADY_COMPLETED',
+        message: 'You have already completed today\'s daily challenge. Come back tomorrow!'
+      });
+    }
     
     // Fixed daily challenge parameters
     const difficultyConfig = {
@@ -257,6 +288,8 @@ app.post('/api/round/submit/infinite', async (req, res) => {
     const receipt = await tx.wait();
     activeRounds.delete(roundId);
     
+    const isPerfect = correctSteps === round.steps;
+    
     res.json({
       success: true,
       score,
@@ -266,7 +299,9 @@ app.post('/api/round/submit/infinite', async (req, res) => {
       verified: verification.passed,
       verificationReasons: verification.reasons,
       txHash: receipt.transactionHash,
-      rewardEligible: verification.passed
+      rewardEligible: verification.passed,
+      isPerfect,
+      canContinue: isPerfect // Only can continue if they won (perfect score)
     });
     
   } catch (error) {
@@ -301,6 +336,7 @@ app.post('/api/round/submit/daily', async (req, res) => {
     const timeElapsedMs = Date.now() - round.startTime;
     const score = calculateScore(correctSteps, round.steps, timeElapsedMs);
     const verification = verifyRound(round, telemetry);
+    const isPerfect = correctSteps === round.steps;
     
     telemetryData.push({
       roundId,
@@ -310,37 +346,76 @@ app.post('/api/round/submit/daily', async (req, res) => {
       verification
     });
     
-    const wallet = new ethers.Wallet(
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-      provider
-    );
-    
-    const contractWithSigner = contract.connect(wallet);
-    
-    const tx = await contractWithSigner.recordDailyChallenge(
-      playerAddress,
-      round.dateNum,
-      score,
-      correctSteps,
-      round.steps,
-      timeElapsedMs,
-      verification.passed && correctSteps === round.steps
-    );
-    
-    const receipt = await tx.wait();
-    activeRounds.delete(roundId);
-    
-    res.json({
-      success: true,
-      score,
-      correctSteps,
-      totalSteps: round.steps,
-      timeElapsedMs,
-      verified: verification.passed,
-      verificationReasons: verification.reasons,
-      txHash: receipt.transactionHash,
-      rewardEligible: verification.passed && correctSteps === round.steps
-    });
+    // Only submit to blockchain if perfect
+    if (isPerfect && verification.passed) {
+      const wallet = new ethers.Wallet(
+        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+        provider
+      );
+      
+      const contractWithSigner = contract.connect(wallet);
+      
+      try {
+        const tx = await contractWithSigner.recordDailyChallenge(
+          playerAddress,
+          round.dateNum,
+          score,
+          correctSteps,
+          round.steps,
+          timeElapsedMs,
+          true
+        );
+        
+        const receipt = await tx.wait();
+        activeRounds.delete(roundId);
+        
+        res.json({
+          success: true,
+          score,
+          correctSteps,
+          totalSteps: round.steps,
+          timeElapsedMs,
+          verified: verification.passed,
+          verificationReasons: verification.reasons,
+          txHash: receipt.transactionHash,
+          rewardEligible: true,
+          isPerfect: true,
+          dailyChallengeCompleted: true
+        });
+        
+      } catch (error) {
+        // Handle "Already completed today" error
+        if (error.message && error.message.includes('Already completed today')) {
+          activeRounds.delete(roundId);
+          return res.status(400).json({ 
+            success: false, 
+            error: 'ALREADY_COMPLETED',
+            message: 'You have already completed today\'s daily challenge!',
+            score,
+            correctSteps,
+            totalSteps: round.steps
+          });
+        }
+        throw error;
+      }
+    } else {
+      // Failed daily challenge - no blockchain submission
+      activeRounds.delete(roundId);
+      res.json({
+        success: true,
+        score,
+        correctSteps,
+        totalSteps: round.steps,
+        timeElapsedMs,
+        verified: verification.passed,
+        verificationReasons: verification.reasons,
+        txHash: null,
+        rewardEligible: false,
+        isPerfect: false,
+        dailyChallengeCompleted: false,
+        message: 'Daily challenge requires perfect completion. Try again!'
+      });
+    }
     
   } catch (error) {
     console.error('Error submitting daily challenge:', error);
