@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memorix - Web3 Memory Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .wallet-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .wallet-btn {
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .wallet-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .wallet-address {
+            font-family: monospace;
+            padding: 10px 20px;
+            background: #e8f4f8;
+            border-radius: 10px;
+            font-size: 0.9em;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .game-panel, .side-panel {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .game-info {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-card {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .info-label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .grid {
+            display: grid;
+            gap: 10px;
+            margin: 30px auto;
+            max-width: 500px;
+        }
+
+        .grid.size-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid.size-4 { grid-template-columns: repeat(4, 1fr); }
+        .grid.size-5 { grid-template-columns: repeat(5, 1fr); }
+
+        .cell {
+            aspect-ratio: 1;
+            background: #e0e0e0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 3px solid transparent;
+        }
+
+        .cell:hover:not(.disabled) {
+            transform: scale(1.05);
+            border-color: #667eea;
+        }
+
+        .cell.active {
+            background: #667eea;
+            box-shadow: 0 0 30px rgba(102, 126, 234, 0.6);
+            transform: scale(1.1);
+        }
+
+        .cell.correct {
+            background: #4caf50;
+            animation: pulse 0.3s;
+        }
+
+        .cell.wrong {
+            background: #f44336;
+            animation: shake 0.3s;
+        }
+
+        .cell.disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            font-size: 1em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        .status.watching { background: #fff3cd; color: #856404; }
+        .status.playing { background: #d1ecf1; color: #0c5460; }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+
+        .leaderboard {
+            margin-top: 20px;
+        }
+
+        .leaderboard-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .rank {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stats-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .daily-challenge-banner {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .challenge-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .challenge-stat {
+            background: rgba(255,255,255,0.2);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>MEMORIX</h1>
+            <p class="subtitle">Web3 Memory Challenge - Infinite Levels & Daily Challenges</p>
+            
+            <div class="wallet-section">
+                <button class="wallet-btn" id="connectBtn">Connect MetaMask</button>
+                <div class="wallet-address hidden" id="walletDisplay"></div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="game-panel">
+                <div class="mode-selector">
+                    <button class="mode-btn active" data-mode="infinite">Infinite Mode</button>
+                    <button class="mode-btn" data-mode="daily">Daily Challenge</button>
+                </div>
+
+                <div id="dailyChallengeBanner" class="daily-challenge-banner hidden">
+                    <h3>Today's Daily Challenge</h3>
+                    <p>Complete perfectly to earn instant rewards!</p>
+                    <div class="challenge-info">
+                        <div class="challenge-stat">
+                            <div class="info-label">Grid Size</div>
+                            <div id="challengeGrid">4x4</div>
+                        </div>
+                        <div class="challenge-stat">
+                            <div class="info-label">Steps</div>
+                            <div id="challengeSteps">8</div>
+                        </div>
+                    </div>
+                    <p style="margin-top: 15px; font-size: 0.9em;" id="challengeStatus">Not attempted today</p>
+                </div>
+
+                <div class="game-info">
+                    <div class="info-card">
+                        <div class="info-label" id="scoreLabel">Level</div>
+                        <div class="info-value" id="scoreValue">1</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">Total Score</div>
+                        <div class="info-value" id="totalScore">0</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">Pending Rewards</div>
+                        <div class="info-value" id="pendingRewards">0 ETH</div>
+                    </div>
+                </div>
+
+                <div id="status" class="status hidden"></div>
+
+                <div id="grid" class="grid size-3"></div>
+
+                <div class="controls">
+                    <button class="btn btn-primary" id="startBtn" disabled>Connect Wallet to Play</button>
+                    <button class="btn btn-primary" id="withdrawBtn" disabled>Withdraw Rewards</button>
+                </div>
+            </div>
+
+            <div class="side-panel">
+                <div class="leaderboard">
+                    <div class="leaderboard-title">Top 10 Leaderboard</div>
+                    <div id="leaderboardList">
+                        <p style="text-align: center; color: #999;">Loading...</p>
+                    </div>
+                </div>
+
+                <div class="stats-section">
+                    <h3 style="margin-bottom: 15px; color: #667eea;">Your Stats</h3>
+                    <div class="stat-row">
+                        <span>Total Rounds</span>
+                        <strong id="statRounds">0</strong>
+                    </div>
+                    <div class="stat-row">
+                        <span>Best Score</span>
+                        <strong id="statBestScore">0</strong>
+                    </div>
+                    <div class="stat-row">
+                        <span>Current Streak</span>
+                        <strong id="statStreak">0</strong>
+                    </div>
+                    <div class="stat-row">
+                        <span>Total Rewards</span>
+                        <strong id="statTotalRewards">0 ETH</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3001/api';
+        const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'; // Update after deployment
+        
+        let web3Provider = null;
+        let connectedAddress = null;
+        let currentMode = 'infinite';
+        
+        let gameState = {
+            roundId: null,
+            sequence: [],
+            userClicks: [],
+            gridSize: 3,
+            isWatching: false,
+            isPlaying: false,
+            currentStep: 0,
+            currentLevel: 1,
+            telemetry: { clicks: [], sequenceStartTs: null }
+        };
+
+        const elements = {
+            connectBtn: document.getElementById('connectBtn'),
+            walletDisplay: document.getElementById('walletDisplay'),
+            grid: document.getElementById('grid'),
+            startBtn: document.getElementById('startBtn'),
+            withdrawBtn: document.getElementById('withdrawBtn'),
+            status: document.getElementById('status'),
+            scoreValue: document.getElementById('scoreValue'),
+            totalScore: document.getElementById('totalScore'),
+            pendingRewards: document.getElementById('pendingRewards'),
+            dailyBanner: document.getElementById('dailyChallengeBanner')
+        };
+
+        async function connectWallet() {
+            if (typeof window.ethereum === 'undefined') {
+                alert('MetaMask is not installed. Please install MetaMask to play.');
+                return;
+            }
+
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                connectedAddress = accounts[0];
+                
+                elements.connectBtn.classList.add('hidden');
+                elements.walletDisplay.textContent = `${connectedAddress.substring(0, 6)}...${connectedAddress.substring(38)}`;
+                elements.walletDisplay.classList.remove('hidden');
+                elements.startBtn.disabled = false;
+                elements.startBtn.textContent = 'Start Game';
+                elements.withdrawBtn.disabled = false;
+
+                await loadPlayerStats();
+                await loadLeaderboard();
+                
+                showStatus('Wallet connected successfully!', 'success');
+                setTimeout(hideStatus, 2000);
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                showStatus('Failed to connect wallet', 'error');
+            }
+        }
+
+        async function loadPlayerStats() {
+            if (!connectedAddress) return;
+
+            try {
+                const response = await fetch(`${API_URL}/player/${connectedAddress}/stats`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const stats = data.stats;
+                    gameState.currentLevel = parseInt(stats.currentLevel) || 1;
+                    elements.scoreValue.textContent = gameState.currentLevel;
+                    elements.totalScore.textContent = stats.totalScore;
+                    elements.pendingRewards.textContent = `${parseFloat(stats.pendingRewards).toFixed(4)} ETH`;
+                    
+                    document.getElementById('statRounds').textContent = stats.totalRounds;
+                    document.getElementById('statBestScore').textContent = stats.bestScore;
+                    document.getElementById('statStreak').textContent = stats.currentStreak;
+                    document.getElementById('statTotalRewards').textContent = `${parseFloat(stats.totalRewards).toFixed(4)} ETH`;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function loadLeaderboard() {
+            // This would fetch from backend
+            const list = document.getElementById('leaderboardList');
+            list.innerHTML = '<p style="text-align: center; color: #999;">Leaderboard updates daily</p>';
+        }
+
+        function createGrid(size) {
+            elements.grid.innerHTML = '';
+            elements.grid.className = `grid size-${size}`;
+            
+            for (let i = 0; i < size * size; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.index = i;
+                cell.addEventListener('click', () => handleCellClick(i));
+                elements.grid.appendChild(cell);
+            }
+        }
+
+        function showStatus(message, type) {
+            elements.status.textContent = message;
+            elements.status.className = `status ${type}`;
+            elements.status.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            elements.status.classList.add('hidden');
+        }
+
+        async function startGame() {
+            if (!connectedAddress) {
+                showStatus('Please connect your wallet first', 'error');
+                return;
+            }
+
+            showStatus('Starting new round...', 'watching');
+            elements.startBtn.disabled = true;
+
+            try {
+                const endpoint = currentMode === 'infinite' ? 'infinite' : 'daily';
+                const response = await fetch(`${API_URL}/round/start/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        playerAddress: connectedAddress,
+                        level: gameState.currentLevel
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to start round');
+                }
+
+                gameState.roundId = data.roundId;
+                gameState.sequence = data.sequence;
+                gameState.gridSize = data.gridSize;
+                gameState.userClicks = [];
+                gameState.currentStep = 0;
+                gameState.telemetry.clicks = [];
+                gameState.telemetry.sequenceStartTs = Date.now();
+
+                createGrid(data.gridSize);
+                await playSequence(data.sequence, data.showDuration, data.intervalBetween);
+                
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                elements.startBtn.disabled = false;
+            }
+        }
+
+        async function playSequence(sequence, showDuration, intervalBetween) {
+            gameState.isWatching = true;
+            showStatus(`Watch carefully! ${sequence.length} steps...`, 'watching');
+            
+            const cells = elements.grid.querySelectorAll('.cell');
+            cells.forEach(cell => cell.classList.add('disabled'));
+
+            for (let i = 0; i < sequence.length; i++) {
+                await sleep(intervalBetween);
+                const cell = cells[sequence[i]];
+                cell.classList.add('active');
+                await sleep(showDuration);
+                cell.classList.remove('active');
+            }
+
+            gameState.isWatching = false;
+            gameState.isPlaying = true;
+            cells.forEach(cell => cell.classList.remove('disabled'));
+            showStatus('Your turn! Click the sequence...', 'playing');
+        }
+
+        function handleCellClick(index) {
+            if (!gameState.isPlaying || gameState.isWatching) return;
+
+            const cell = elements.grid.querySelectorAll('.cell')[index];
+            const clickTime = Date.now();
+            
+            gameState.telemetry.clicks.push({
+                index: index,
+                clientTs: clickTime,
+                xPx: 0,
+                yPx: 0
+            });
+
+            gameState.userClicks.push(index);
+            const expectedIndex = gameState.sequence[gameState.currentStep];
+            
+            if (index === expectedIndex) {
+                cell.classList.add('correct');
+                setTimeout(() => cell.classList.remove('correct'), 300);
+                gameState.currentStep++;
+                
+                if (gameState.currentStep === gameState.sequence.length) {
+                    finishRound();
+                }
+            } else {
+                cell.classList.add('wrong');
+                setTimeout(() => cell.classList.remove('wrong'), 300);
+                finishRound();
+            }
+        }
+
+        async function finishRound() {
+            gameState.isPlaying = false;
+            const cells = elements.grid.querySelectorAll('.cell');
+            cells.forEach(cell => cell.classList.add('disabled'));
+            showStatus('Submitting results...', 'watching');
+
+            try {
+                const endpoint = currentMode === 'infinite' ? 'infinite' : 'daily';
+                const response = await fetch(`${API_URL}/round/submit/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        roundId: gameState.roundId,
+                        playerAddress: connectedAddress,
+                        clicks: gameState.userClicks.map((index, i) => ({
+                            index,
+                            clientTs: gameState.telemetry.clicks[i]?.clientTs || Date.now(),
+                            xPx: 0,
+                            yPx: 0
+                        })),
+                        telemetry: gameState.telemetry
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    const isPerfect = result.correctSteps === result.totalSteps;
+                    showStatus(isPerfect ? 'Perfect! Level up!' : 'Good try!', isPerfect ? 'success' : 'error');
+                    
+                    if (isPerfect && currentMode === 'infinite') {
+                        gameState.currentLevel++;
+                        elements.scoreValue.textContent = gameState.currentLevel;
+                    }
+                    
+                    await loadPlayerStats();
+                } else {
+                    throw new Error(result.error || 'Failed to submit round');
+                }
+                
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+            
+            elements.startBtn.disabled = false;
+        }
+
+        async function withdrawRewards() {
+            // Implement withdrawal using ethers.js
+            showStatus('Withdrawal feature coming soon!', 'watching');
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Event listeners
+        elements.connectBtn.addEventListener('click', connectWallet);
+        elements.startBtn.addEventListener('click', startGame);
+        elements.withdrawBtn.addEventListener('click', withdrawRewards);
+
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+                
+                if (currentMode === 'daily') {
+                    elements.dailyBanner.classList.remove('hidden');
+                    document.getElementById('scoreLabel').textContent = 'Challenge';
+                } else {
+                    elements.dailyBanner.classList.add('hidden');
+                    document.getElementById('scoreLabel').textContent = 'Level';
+                }
+            });
+        });
+
+        createGrid(3);
+    </script>
+</body>
+</html>

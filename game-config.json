@@ -1,0 +1,90 @@
+{
+  "game": {
+    "name": "Memorix",
+    "version": "1.0.0",
+    "description": "Simon-style Web3 memory game with blockchain rewards"
+  },
+  "grid": {
+    "defaultSize": 3,
+    "minSize": 2,
+    "maxSize": 10,
+    "allowCustomSize": true
+  },
+  "rounds": {
+    "types": ["NORMAL", "TIMED", "LADDER"],
+    "defaultType": "NORMAL",
+    "minSteps": 3,
+    "maxSteps": 20,
+    "defaultSteps": 5
+  },
+  "timing": {
+    "show_duration_ms": 500,
+    "interval_between_steps_ms": 300,
+    "input_timeout_ms": 30000,
+    "fast_time_threshold_ms": 10000
+  },
+  "scoring": {
+    "base_points_per_step": 10,
+    "time_bonus_divisor": 100,
+    "perfect_round_multiplier": 1.5,
+    "accuracy_weight": 0.5
+  },
+  "rewards": {
+    "base_reward_per_step_eth": "0.001",
+    "time_bonus_multiplier": 100,
+    "perfect_round_bonus_percent": 50,
+    "min_score_for_reward": 0
+  },
+  "antiCheat": {
+    "min_reaction_time_ms": 100,
+    "max_reaction_time_ms": 5000,
+    "click_position_variance_threshold": 50,
+    "suspicious_pattern_threshold": 0.8,
+    "require_verification": true
+  },
+  "telemetry": {
+    "enabled": true,
+    "capture_fps": true,
+    "capture_rtt": true,
+    "capture_click_positions": true,
+    "anonymize_ip": true
+  },
+  "difficulty": {
+    "levels": [
+      {
+        "name": "Easy",
+        "gridSize": 3,
+        "steps": 3,
+        "showDuration": 800,
+        "intervalBetween": 500
+      },
+      {
+        "name": "Medium",
+        "gridSize": 3,
+        "steps": 5,
+        "showDuration": 600,
+        "intervalBetween": 400
+      },
+      {
+        "name": "Hard",
+        "gridSize": 4,
+        "steps": 7,
+        "showDuration": 400,
+        "intervalBetween": 300
+      },
+      {
+        "name": "Expert",
+        "gridSize": 5,
+        "steps": 10,
+        "showDuration": 300,
+        "intervalBetween": 200
+      }
+    ]
+  },
+  "network": {
+    "localhost": {
+      "url": "http://127.0.0.1:8545",
+      "chainId": 31337
+    }
+  }
+}

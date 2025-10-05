@@ -1,0 +1,15 @@
+{
+  "difficulty_levels": {
+    "easy": { "grid_size": 3, "steps": 3, "show_duration_ms": 1000, "interval_ms": 600 },
+    "medium": { "grid_size": 4, "steps": 5, "show_duration_ms": 800, "interval_ms": 500 },
+    "hard": { "grid_size": 5, "steps": 7, "show_duration_ms": 600, "interval_ms": 400 }
+  },
+  "reward_rules": {
+    "base": 1000000000000000,
+    "multiplier": { "easy": 1, "medium": 1.5, "hard": 2 }
+  },
+  "feature_flags": {
+    "timed_mode_enabled": true,
+    "ladder_mode_enabled": false
+  }
+}
