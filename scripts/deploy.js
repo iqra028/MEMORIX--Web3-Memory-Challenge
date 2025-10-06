@@ -10,7 +10,6 @@ async function main() {
   
   console.log("MemorixGame deployed to:", game.address);
   
-  // Fund the contract with initial ETH
   const [owner] = await hre.ethers.getSigners();
   console.log("Funding contract with 50 ETH...");
   
@@ -23,7 +22,6 @@ async function main() {
   const balance = await hre.ethers.provider.getBalance(game.address);
   console.log("Contract balance:", hre.ethers.utils.formatEther(balance), "ETH");
   
-  // Set up today's daily challenge
   console.log("\nSetting up daily challenge...");
   const today = new Date();
   const dateNum = parseInt(
@@ -37,11 +35,11 @@ async function main() {
     4,      // 4x4 grid
     8,      // 8 steps
     400,    // 400ms show duration
-    250     // 250ms interval
+    250,    // 250ms interval
+    20000   // 20 second time limit
   );
   await dailyChallengeTx.wait();
   
-  // Fund daily challenge
   const fundDailyTx = await game.fundDailyChallenge(dateNum, {
     value: hre.ethers.utils.parseEther("5")
   });
@@ -49,7 +47,6 @@ async function main() {
   
   console.log("Daily challenge set for date:", dateNum);
   
-  // Display contract info
   console.log("\n=== Contract Deployment Info ===");
   console.log("Contract Address:", game.address);
   console.log("Owner Address:", owner.address);
@@ -58,7 +55,6 @@ async function main() {
   console.log("Daily Challenge Reward:", hre.ethers.utils.formatEther(await game.dailyChallengeRewardPerCompletion()), "ETH");
   console.log("Leaderboard Pool:", hre.ethers.utils.formatEther(await game.leaderboardRewardPool()), "ETH");
   
-  // Save deployment info
   const fs = require('fs');
   const deploymentInfo = {
     contractAddress: game.address,
@@ -77,7 +73,7 @@ async function main() {
   console.log("\nDeployment info saved to deployment-info.json");
   console.log("\n✅ Setup complete! You can now:");
   console.log("1. Start the backend: node server.js");
-  console.log("2. Open the game: http://localhost:8000");
+  console.log("2. Open the game in public folder");
 }
 
 main().catch((error) => {

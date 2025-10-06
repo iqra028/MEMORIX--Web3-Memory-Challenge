@@ -1,7 +1,16 @@
 require("@nomiclabs/hardhat-ethers");
 
 module.exports = {
-  solidity: "0.8.24",
+  solidity: {
+    version: "0.8.24",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+      viaIR: true, // ✅ Enables IR-based compilation to fix "Stack too deep" errors
+    },
+  },
   networks: {
     localhost: {
       url: "http://127.0.0.1:8545",
@@ -9,3 +18,4 @@ module.exports = {
     },
   },
 };
+

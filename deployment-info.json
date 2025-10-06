@@ -1,5 +1,5 @@
 {
-  "contractAddress": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
+  "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   "contractABI": [
     {
       "inputs": [],
@@ -120,9 +120,40 @@
           "internalType": "uint8",
           "name": "level",
           "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum MemorixGame.FailureReason",
+          "name": "failureReason",
+          "type": "uint8"
         }
       ],
       "name": "RoundRecorded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "level",
+          "type": "uint8"
+        }
+      ],
+      "name": "TimeExpired",
       "type": "event"
     },
     {
@@ -153,6 +184,11 @@
         {
           "internalType": "uint256",
           "name": "timeElapsedMs",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timeLimitMs",
           "type": "uint256"
         }
       ],
@@ -231,6 +267,11 @@
         {
           "internalType": "uint256",
           "name": "intervalBetween",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timeLimitMs",
           "type": "uint256"
         }
       ],
@@ -385,6 +426,11 @@
               "type": "uint256"
             },
             {
+              "internalType": "uint256",
+              "name": "timeLimitMs",
+              "type": "uint256"
+            },
+            {
               "internalType": "uint8",
               "name": "correctSteps",
               "type": "uint8"
@@ -403,6 +449,11 @@
               "internalType": "bool",
               "name": "verified",
               "type": "bool"
+            },
+            {
+              "internalType": "enum MemorixGame.FailureReason",
+              "name": "failureReason",
+              "type": "uint8"
             }
           ],
           "internalType": "struct MemorixGame.Round",
@@ -605,6 +656,16 @@
           "internalType": "uint256",
           "name": "lastDailyChallengeDate",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timeoutsCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "perfectRoundsCount",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -641,6 +702,16 @@
           "internalType": "uint256",
           "name": "timeElapsedMs",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timeLimitMs",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "timeExpired",
+          "type": "bool"
         },
         {
           "internalType": "bool",
@@ -684,6 +755,16 @@
           "internalType": "uint256",
           "name": "timeElapsedMs",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timeLimitMs",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "timeExpired",
+          "type": "bool"
         },
         {
           "internalType": "bool",
@@ -747,6 +828,11 @@
           "type": "uint256"
         },
         {
+          "internalType": "uint256",
+          "name": "timeLimitMs",
+          "type": "uint256"
+        },
+        {
           "internalType": "uint8",
           "name": "correctSteps",
           "type": "uint8"
@@ -765,6 +851,11 @@
           "internalType": "bool",
           "name": "verified",
           "type": "bool"
+        },
+        {
+          "internalType": "enum MemorixGame.FailureReason",
+          "name": "failureReason",
+          "type": "uint8"
         }
       ],
       "stateMutability": "view",
@@ -795,6 +886,11 @@
         {
           "internalType": "uint256",
           "name": "intervalBetween",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timeLimitMs",
           "type": "uint256"
         }
       ],
@@ -892,6 +988,6 @@
   ],
   "ownerAddress": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "network": "localhost",
-  "dailyChallengeDate": 20251005,
-  "deployedAt": "2025-10-05T21:51:52.571Z"
+  "dailyChallengeDate": 20251006,
+  "deployedAt": "2025-10-06T19:21:35.275Z"
 }
