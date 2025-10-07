@@ -5,23 +5,17 @@ contract MemorixGame {
     address public owner;
 
     enum RoundType { INFINITE, DAILY_CHALLENGE }
-    enum FailureReason { NONE, WRONG_SEQUENCE, TIME_EXPIRED }
 
     struct Round {
         uint256 id;
         address player;
         RoundType roundType;
         uint8 level;
-        uint8 gridSize;
-        uint8 steps;
         uint256 score;
         uint256 timeElapsedMs;
-        uint256 timeLimitMs;
-        uint8 correctSteps;
         uint256 reward;
         uint256 timestamp;
         bool verified;
-        FailureReason failureReason;
     }
 
     struct PlayerStats {
@@ -29,23 +23,10 @@ contract MemorixGame {
         uint256 totalScore;
         uint256 totalRewards;
         uint256 bestScore;
-        uint256 currentStreak;
-        uint8 currentLevel;
-        uint256 lastDailyChallengeDate;
-        uint256 timeoutsCount;
-        uint256 perfectRoundsCount;
-    }
-
-    struct DailyChallenge {
-        uint256 date;
-        uint8 gridSize;
-        uint8 steps;
-        uint256 rewardPool;
-        uint256 showDuration;
-        uint256 intervalBetween;
-        uint256 timeLimitMs;
-        mapping(address => bool) hasCompleted;
-        address[] completers;
+        uint256 currentLevel;
+        uint256 dailyTriesUsed;
+        uint256 lastDailyDate;
+        bool dailyCompleted;
     }
 
     struct LeaderboardEntry {
@@ -60,34 +41,32 @@ contract MemorixGame {
     mapping(address => uint256) public pendingRewards;
     mapping(address => PlayerStats) public playerStats;
     
-    mapping(uint256 => DailyChallenge) public dailyChallenges;
-    uint256 public currentDailyChallengeDate;
+    // Daily challenge tracking: date => player => (triesUsed, completed)
+    mapping(uint256 => mapping(address => uint256)) public dailyTriesUsed;
+    mapping(uint256 => mapping(address => bool)) public dailyCompleted;
     
+    // Leaderboard
     LeaderboardEntry[10] public leaderboard;
-    uint256 public lastLeaderboardUpdate;
+    uint256 public lastLeaderboardReset;
 
-    uint256 public baseRewardPerStep = 0.001 ether;
-    uint256 public timeBonusMultiplier = 100;
-    uint256 public dailyChallengeRewardPerCompletion = 0.01 ether;
-    uint256 public leaderboardRewardPool = 1 ether;
+    // Configurable rewards
+    uint256 public dailyReward = 0.01 ether; // Fixed reward for completing daily challenge
+    uint256 public leaderboardTotalPool = 1 ether;
     
     event RoundRecorded(
         uint256 indexed roundId, 
         address indexed player, 
-        uint256 score, 
-        uint256 reward,
-        RoundType roundType,
+        uint256 score,
         uint8 level,
-        FailureReason failureReason
+        RoundType roundType
     );
     event RewardWithdrawn(address indexed player, uint256 amount);
-    event DailyChallengeCompleted(uint256 indexed date, address indexed player, uint256 reward);
+    event DailyCompleted(address indexed player, uint256 date);
     event LeaderboardUpdated(uint256 timestamp);
-    event LevelUp(address indexed player, uint8 newLevel);
-    event TimeExpired(uint256 indexed roundId, address indexed player, uint8 level);
 
     constructor() {
         owner = msg.sender;
+        lastLeaderboardReset = block.timestamp;
     }
 
     modifier onlyOwner() {
@@ -95,172 +74,107 @@ contract MemorixGame {
         _;
     }
 
-    function setDailyChallenge(
-        uint256 date,
-        uint8 gridSize,
-        uint8 steps,
-        uint256 showDuration,
-        uint256 intervalBetween,
-        uint256 timeLimitMs
-    ) external onlyOwner {
-        DailyChallenge storage challenge = dailyChallenges[date];
-        challenge.date = date;
-        challenge.gridSize = gridSize;
-        challenge.steps = steps;
-        challenge.showDuration = showDuration;
-        challenge.intervalBetween = intervalBetween;
-        challenge.timeLimitMs = timeLimitMs;
-        currentDailyChallengeDate = date;
-    }
-
-    function fundDailyChallenge(uint256 date) external payable onlyOwner {
-        dailyChallenges[date].rewardPool += msg.value;
-    }
-
+    // Record infinite mode round (NO instant reward, only for leaderboard)
     function recordInfiniteRound(
         address player,
         uint256 score,
-        uint8 gridSize,
-        uint8 steps,
-        uint8 correctSteps,
+        uint8 level,
         uint256 timeElapsedMs,
-        uint256 timeLimitMs,
-        bool timeExpired,
         bool verified
     ) external onlyOwner {
-        require(steps > 0 && steps <= 50, "Invalid steps");
-        require(correctSteps <= steps, "Invalid correct steps");
-        require(gridSize >= 2 && gridSize <= 10, "Invalid grid size");
-
-        PlayerStats storage stats = playerStats[player];
-        uint8 currentLevel = stats.currentLevel == 0 ? 1 : stats.currentLevel;
-
-        FailureReason failureReason = FailureReason.NONE;
-        if (timeExpired) {
-            failureReason = FailureReason.TIME_EXPIRED;
-            stats.timeoutsCount++;
-        } else if (correctSteps < steps) {
-            failureReason = FailureReason.WRONG_SEQUENCE;
-        }
-
-        uint256 reward = 0;
-        if (!timeExpired && correctSteps == steps) {
-            reward = calculateReward(steps, correctSteps, timeElapsedMs, timeLimitMs);
-        }
-
+        require(verified, "Not verified");
+        
         rounds[nextRoundId] = Round({
             id: nextRoundId,
             player: player,
             roundType: RoundType.INFINITE,
-            level: currentLevel,
-            gridSize: gridSize,
-            steps: steps,
+            level: level,
             score: score,
             timeElapsedMs: timeElapsedMs,
-            timeLimitMs: timeLimitMs,
-            correctSteps: correctSteps,
-            reward: reward,
+            reward: 0, // No instant reward
             timestamp: block.timestamp,
-            verified: verified,
-            failureReason: failureReason
+            verified: verified
         });
 
         playerRounds[player].push(nextRoundId);
+        
+        PlayerStats storage stats = playerStats[player];
         stats.totalRounds++;
         stats.totalScore += score;
+        stats.currentLevel = level; // Update current level
         
-        if (verified && correctSteps == steps && !timeExpired) {
-            pendingRewards[player] += reward;
-            stats.totalRewards += reward;
-            stats.currentLevel = currentLevel + 1;
-            stats.currentStreak++;
-            stats.perfectRoundsCount++;
-            
-            if (score > stats.bestScore) {
-                stats.bestScore = score;
-            }
-            
-            emit LevelUp(player, stats.currentLevel);
-        } else {
-            stats.currentStreak = 0;
-            if (timeExpired) {
-                emit TimeExpired(nextRoundId, player, currentLevel);
-            }
+        if (score > stats.bestScore) {
+            stats.bestScore = score;
         }
 
-        emit RoundRecorded(nextRoundId, player, score, reward, RoundType.INFINITE, currentLevel, failureReason);
+        emit RoundRecorded(nextRoundId, player, score, level, RoundType.INFINITE);
         nextRoundId++;
     }
 
+    // Record daily challenge (single challenge, not 4 rounds)
     function recordDailyChallenge(
         address player,
         uint256 date,
         uint256 score,
-        uint8 correctSteps,
-        uint8 totalSteps,
         uint256 timeElapsedMs,
-        uint256 timeLimitMs,
-        bool timeExpired,
+        bool passed,
         bool verified
     ) external onlyOwner {
-        DailyChallenge storage challenge = dailyChallenges[date];
-        require(challenge.date == date, "Challenge not initialized");
-        require(!challenge.hasCompleted[player], "Already completed today");
         require(verified, "Not verified");
-        require(correctSteps == totalSteps && !timeExpired, "Must complete perfectly within time");
-
-        challenge.hasCompleted[player] = true;
-        challenge.completers.push(player);
-
-        uint256 reward = dailyChallengeRewardPerCompletion;
-        pendingRewards[player] += reward;
-
-        PlayerStats storage stats = playerStats[player];
-        stats.totalScore += score;
-        stats.totalRewards += reward;
-        stats.lastDailyChallengeDate = date;
-        stats.perfectRoundsCount++;
-
+        require(dailyTriesUsed[date][player] < 3, "Max tries exceeded");
+        require(!dailyCompleted[date][player], "Already completed today");
+        
+        // Increment tries
+        dailyTriesUsed[date][player]++;
+        
+        uint256 reward = 0;
+        
+        // Only reward if passed
+        if (passed) {
+            dailyCompleted[date][player] = true;
+            reward = dailyReward;
+            pendingRewards[player] += reward;
+            
+            PlayerStats storage stats = playerStats[player];
+            stats.totalRewards += reward;
+            stats.dailyCompleted = true;
+            
+            emit DailyCompleted(player, date);
+        }
+        
+        // Record round
         rounds[nextRoundId] = Round({
             id: nextRoundId,
             player: player,
             roundType: RoundType.DAILY_CHALLENGE,
             level: 0,
-            gridSize: challenge.gridSize,
-            steps: challenge.steps,
             score: score,
             timeElapsedMs: timeElapsedMs,
-            timeLimitMs: timeLimitMs,
-            correctSteps: correctSteps,
             reward: reward,
             timestamp: block.timestamp,
-            verified: verified,
-            failureReason: FailureReason.NONE
+            verified: verified
         });
 
         playerRounds[player].push(nextRoundId);
+        
+        PlayerStats storage stats = playerStats[player];
+        stats.totalRounds++;
+        stats.totalScore += score;
+        stats.dailyTriesUsed = dailyTriesUsed[date][player];
+        stats.lastDailyDate = date;
 
-        emit DailyChallengeCompleted(date, player, reward);
-        emit RoundRecorded(nextRoundId, player, score, reward, RoundType.DAILY_CHALLENGE, 0, FailureReason.NONE);
+        emit RoundRecorded(nextRoundId, player, score, 0, RoundType.DAILY_CHALLENGE);
         nextRoundId++;
     }
 
-    function updateLeaderboard(address[] memory topPlayers, uint256[] memory scores, uint8[] memory levels) external onlyOwner {
-        require(topPlayers.length == 10, "Must provide 10 players");
-        require(scores.length == 10 && levels.length == 10, "Arrays length mismatch");
-
-        uint256[10] memory rewards = [
-            leaderboardRewardPool * 30 / 100,
-            leaderboardRewardPool * 20 / 100,
-            leaderboardRewardPool * 15 / 100,
-            leaderboardRewardPool * 10 / 100,
-            leaderboardRewardPool * 8 / 100,
-            leaderboardRewardPool * 6 / 100,
-            leaderboardRewardPool * 4 / 100,
-            leaderboardRewardPool * 3 / 100,
-            leaderboardRewardPool * 2 / 100,
-            leaderboardRewardPool * 2 / 100
-        ];
+    // Update leaderboard and distribute rewards
+    function updateLeaderboard(
+        address[10] memory topPlayers,
+        uint256[10] memory scores,
+        uint8[10] memory levels
+    ) external onlyOwner {
+        // Reward distribution (30%, 20%, 15%, 10%, 8%, 6%, 4%, 3%, 2%, 2%)
+        uint256[10] memory rewardPercents = [uint256(30), 20, 15, 10, 8, 6, 4, 3, 2, 2];
 
         for (uint8 i = 0; i < 10; i++) {
             leaderboard[i] = LeaderboardEntry({
@@ -270,34 +184,14 @@ contract MemorixGame {
             });
             
             if (topPlayers[i] != address(0)) {
-                pendingRewards[topPlayers[i]] += rewards[i];
-                playerStats[topPlayers[i]].totalRewards += rewards[i];
+                uint256 reward = (leaderboardTotalPool * rewardPercents[i]) / 100;
+                pendingRewards[topPlayers[i]] += reward;
+                playerStats[topPlayers[i]].totalRewards += reward;
             }
         }
 
-        lastLeaderboardUpdate = block.timestamp;
+        lastLeaderboardReset = block.timestamp;
         emit LeaderboardUpdated(block.timestamp);
-    }
-
-    function calculateReward(
-        uint8 steps,
-        uint8 correctSteps,
-        uint256 timeElapsedMs,
-        uint256 timeLimitMs
-    ) public view returns (uint256) {
-        if (correctSteps == 0) return 0;
-        
-        uint256 reward = uint256(correctSteps) * baseRewardPerStep;
-        
-        uint256 timeLeftMs = timeLimitMs > timeElapsedMs ? timeLimitMs - timeElapsedMs : 0;
-        uint256 timeBonus = (reward * timeLeftMs * timeBonusMultiplier) / (timeLimitMs * 1000);
-        reward += timeBonus;
-        
-        if (correctSteps == steps) {
-            reward += reward / 2;
-        }
-        
-        return reward;
     }
 
     function withdrawReward() external {
@@ -311,6 +205,19 @@ contract MemorixGame {
         emit RewardWithdrawn(msg.sender, amount);
     }
 
+    // View functions
+    function getDailyStatus(uint256 date, address player) 
+        external 
+        view 
+        returns (uint256 triesUsed, bool completed) 
+    {
+        return (dailyTriesUsed[date][player], dailyCompleted[date][player]);
+    }
+
+    function getLeaderboard() external view returns (LeaderboardEntry[10] memory) {
+        return leaderboard;
+    }
+
     function getPlayerRounds(address player) external view returns (uint256[] memory) {
         return playerRounds[player];
     }
@@ -319,28 +226,13 @@ contract MemorixGame {
         return rounds[roundId];
     }
 
-    function getDailyChallengeCompleters(uint256 date) external view returns (address[] memory) {
-        return dailyChallenges[date].completers;
-    }
-
-    function hasCompletedDailyChallenge(uint256 date, address player) external view returns (bool) {
-        return dailyChallenges[date].hasCompleted[player];
-    }
-
-    function getLeaderboard() external view returns (LeaderboardEntry[10] memory) {
-        return leaderboard;
-    }
-
-    function updateBaseReward(uint256 newReward) external onlyOwner {
-        baseRewardPerStep = newReward;
-    }
-
-    function updateDailyChallengeReward(uint256 newReward) external onlyOwner {
-        dailyChallengeRewardPerCompletion = newReward;
+    // Admin functions
+    function updateDailyReward(uint256 newReward) external onlyOwner {
+        dailyReward = newReward;
     }
 
     function updateLeaderboardPool(uint256 newPool) external onlyOwner {
-        leaderboardRewardPool = newPool;
+        leaderboardTotalPool = newPool;
     }
 
     function fundContract() external payable onlyOwner {}

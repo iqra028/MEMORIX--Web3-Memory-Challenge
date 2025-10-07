@@ -1,5 +1,5 @@
 {
-  "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+  "contractAddress": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
   "contractABI": [
     {
       "inputs": [],
@@ -11,12 +11,6 @@
       "inputs": [
         {
           "indexed": true,
-          "internalType": "uint256",
-          "name": "date",
-          "type": "uint256"
-        },
-        {
-          "indexed": true,
           "internalType": "address",
           "name": "player",
           "type": "address"
@@ -24,11 +18,11 @@
         {
           "indexed": false,
           "internalType": "uint256",
-          "name": "reward",
+          "name": "date",
           "type": "uint256"
         }
       ],
-      "name": "DailyChallengeCompleted",
+      "name": "DailyCompleted",
       "type": "event"
     },
     {
@@ -42,25 +36,6 @@
         }
       ],
       "name": "LeaderboardUpdated",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint8",
-          "name": "newLevel",
-          "type": "uint8"
-        }
-      ],
-      "name": "LevelUp",
       "type": "event"
     },
     {
@@ -105,26 +80,14 @@
         },
         {
           "indexed": false,
-          "internalType": "uint256",
-          "name": "reward",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "enum MemorixGame.RoundType",
-          "name": "roundType",
-          "type": "uint8"
-        },
-        {
-          "indexed": false,
           "internalType": "uint8",
           "name": "level",
           "type": "uint8"
         },
         {
           "indexed": false,
-          "internalType": "enum MemorixGame.FailureReason",
-          "name": "failureReason",
+          "internalType": "enum MemorixGame.RoundType",
+          "name": "roundType",
           "type": "uint8"
         }
       ],
@@ -132,72 +95,24 @@
       "type": "event"
     },
     {
-      "anonymous": false,
       "inputs": [
         {
-          "indexed": true,
           "internalType": "uint256",
-          "name": "roundId",
+          "name": "",
           "type": "uint256"
         },
         {
-          "indexed": true,
           "internalType": "address",
-          "name": "player",
+          "name": "",
           "type": "address"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint8",
-          "name": "level",
-          "type": "uint8"
         }
       ],
-      "name": "TimeExpired",
-      "type": "event"
-    },
-    {
-      "inputs": [],
-      "name": "baseRewardPerStep",
+      "name": "dailyCompleted",
       "outputs": [
         {
-          "internalType": "uint256",
+          "internalType": "bool",
           "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint8",
-          "name": "steps",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint8",
-          "name": "correctSteps",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint256",
-          "name": "timeElapsedMs",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "timeLimitMs",
-          "type": "uint256"
-        }
-      ],
-      "name": "calculateReward",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -205,20 +120,7 @@
     },
     {
       "inputs": [],
-      "name": "currentDailyChallengeDate",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "dailyChallengeRewardPerCompletion",
+      "name": "dailyReward",
       "outputs": [
         {
           "internalType": "uint256",
@@ -235,43 +137,18 @@
           "internalType": "uint256",
           "name": "",
           "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
         }
       ],
-      "name": "dailyChallenges",
+      "name": "dailyTriesUsed",
       "outputs": [
         {
           "internalType": "uint256",
-          "name": "date",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint8",
-          "name": "gridSize",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint8",
-          "name": "steps",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint256",
-          "name": "rewardPool",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "showDuration",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "intervalBetween",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "timeLimitMs",
+          "name": "",
           "type": "uint256"
         }
       ],
@@ -298,27 +175,24 @@
           "internalType": "uint256",
           "name": "date",
           "type": "uint256"
-        }
-      ],
-      "name": "fundDailyChallenge",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
+        },
         {
-          "internalType": "uint256",
-          "name": "date",
-          "type": "uint256"
+          "internalType": "address",
+          "name": "player",
+          "type": "address"
         }
       ],
-      "name": "getDailyChallengeCompleters",
+      "name": "getDailyStatus",
       "outputs": [
         {
-          "internalType": "address[]",
-          "name": "",
-          "type": "address[]"
+          "internalType": "uint256",
+          "name": "triesUsed",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "completed",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -406,16 +280,6 @@
               "type": "uint8"
             },
             {
-              "internalType": "uint8",
-              "name": "gridSize",
-              "type": "uint8"
-            },
-            {
-              "internalType": "uint8",
-              "name": "steps",
-              "type": "uint8"
-            },
-            {
               "internalType": "uint256",
               "name": "score",
               "type": "uint256"
@@ -424,16 +288,6 @@
               "internalType": "uint256",
               "name": "timeElapsedMs",
               "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "timeLimitMs",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint8",
-              "name": "correctSteps",
-              "type": "uint8"
             },
             {
               "internalType": "uint256",
@@ -449,11 +303,6 @@
               "internalType": "bool",
               "name": "verified",
               "type": "bool"
-            },
-            {
-              "internalType": "enum MemorixGame.FailureReason",
-              "name": "failureReason",
-              "type": "uint8"
             }
           ],
           "internalType": "struct MemorixGame.Round",
@@ -465,32 +314,8 @@
       "type": "function"
     },
     {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "date",
-          "type": "uint256"
-        },
-        {
-          "internalType": "address",
-          "name": "player",
-          "type": "address"
-        }
-      ],
-      "name": "hasCompletedDailyChallenge",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
       "inputs": [],
-      "name": "lastLeaderboardUpdate",
+      "name": "lastLeaderboardReset",
       "outputs": [
         {
           "internalType": "uint256",
@@ -532,7 +357,7 @@
     },
     {
       "inputs": [],
-      "name": "leaderboardRewardPool",
+      "name": "leaderboardTotalPool",
       "outputs": [
         {
           "internalType": "uint256",
@@ -644,28 +469,23 @@
         },
         {
           "internalType": "uint256",
-          "name": "currentStreak",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint8",
           "name": "currentLevel",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint256",
-          "name": "lastDailyChallengeDate",
           "type": "uint256"
         },
         {
           "internalType": "uint256",
-          "name": "timeoutsCount",
+          "name": "dailyTriesUsed",
           "type": "uint256"
         },
         {
           "internalType": "uint256",
-          "name": "perfectRoundsCount",
+          "name": "lastDailyDate",
           "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "dailyCompleted",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -689,28 +509,13 @@
           "type": "uint256"
         },
         {
-          "internalType": "uint8",
-          "name": "correctSteps",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint8",
-          "name": "totalSteps",
-          "type": "uint8"
-        },
-        {
           "internalType": "uint256",
           "name": "timeElapsedMs",
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
-          "name": "timeLimitMs",
-          "type": "uint256"
-        },
-        {
           "internalType": "bool",
-          "name": "timeExpired",
+          "name": "passed",
           "type": "bool"
         },
         {
@@ -738,33 +543,13 @@
         },
         {
           "internalType": "uint8",
-          "name": "gridSize",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint8",
-          "name": "steps",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint8",
-          "name": "correctSteps",
+          "name": "level",
           "type": "uint8"
         },
         {
           "internalType": "uint256",
           "name": "timeElapsedMs",
           "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "timeLimitMs",
-          "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "timeExpired",
-          "type": "bool"
         },
         {
           "internalType": "bool",
@@ -808,16 +593,6 @@
           "type": "uint8"
         },
         {
-          "internalType": "uint8",
-          "name": "gridSize",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint8",
-          "name": "steps",
-          "type": "uint8"
-        },
-        {
           "internalType": "uint256",
           "name": "score",
           "type": "uint256"
@@ -826,16 +601,6 @@
           "internalType": "uint256",
           "name": "timeElapsedMs",
           "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "timeLimitMs",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint8",
-          "name": "correctSteps",
-          "type": "uint8"
         },
         {
           "internalType": "uint256",
@@ -851,62 +616,6 @@
           "internalType": "bool",
           "name": "verified",
           "type": "bool"
-        },
-        {
-          "internalType": "enum MemorixGame.FailureReason",
-          "name": "failureReason",
-          "type": "uint8"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "date",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint8",
-          "name": "gridSize",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint8",
-          "name": "steps",
-          "type": "uint8"
-        },
-        {
-          "internalType": "uint256",
-          "name": "showDuration",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "intervalBetween",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "timeLimitMs",
-          "type": "uint256"
-        }
-      ],
-      "name": "setDailyChallenge",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "timeBonusMultiplier",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -920,7 +629,7 @@
           "type": "uint256"
         }
       ],
-      "name": "updateBaseReward",
+      "name": "updateDailyReward",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -928,32 +637,19 @@
     {
       "inputs": [
         {
-          "internalType": "uint256",
-          "name": "newReward",
-          "type": "uint256"
-        }
-      ],
-      "name": "updateDailyChallengeReward",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address[]",
+          "internalType": "address[10]",
           "name": "topPlayers",
-          "type": "address[]"
+          "type": "address[10]"
         },
         {
-          "internalType": "uint256[]",
+          "internalType": "uint256[10]",
           "name": "scores",
-          "type": "uint256[]"
+          "type": "uint256[10]"
         },
         {
-          "internalType": "uint8[]",
+          "internalType": "uint8[10]",
           "name": "levels",
-          "type": "uint8[]"
+          "type": "uint8[10]"
         }
       ],
       "name": "updateLeaderboard",
@@ -988,6 +684,10 @@
   ],
   "ownerAddress": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "network": "localhost",
-  "dailyChallengeDate": 20251006,
-  "deployedAt": "2025-10-06T19:21:35.275Z"
+  "chainId": 31337,
+  "deployedAt": "2025-10-07T19:56:58.064Z",
+  "config": {
+    "dailyReward": "0.01",
+    "leaderboardPool": "1.0"
+  }
 }

@@ -8,7 +8,7 @@ module.exports = {
         enabled: true,
         runs: 200,
       },
-      viaIR: true, // ✅ Enables IR-based compilation to fix "Stack too deep" errors
+      viaIR: true,
     },
   },
   networks: {

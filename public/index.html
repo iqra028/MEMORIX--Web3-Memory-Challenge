@@ -39,6 +39,7 @@
         .grid.size-3 { grid-template-columns: repeat(3, 1fr); }
         .grid.size-4 { grid-template-columns: repeat(4, 1fr); }
         .grid.size-5 { grid-template-columns: repeat(5, 1fr); }
+        .grid.size-6 { grid-template-columns: repeat(6, 1fr); }
         .cell { aspect-ratio: 1; background: #e0e0e0; border-radius: 10px; cursor: pointer; transition: all 0.3s; border: 3px solid transparent; }
         .cell:hover:not(.disabled) { transform: scale(1.05); border-color: #667eea; }
         .cell.active { background: #667eea; box-shadow: 0 0 30px rgba(102, 126, 234, 0.6); transform: scale(1.1); }
@@ -59,7 +60,6 @@
         .status.playing { background: #d1ecf1; color: #0c5460; }
         .status.success { background: #d4edda; color: #155724; }
         .status.error { background: #f8d7da; color: #721c24; }
-        .status.timeout { background: #ff9800; color: #fff; }
         .leaderboard { margin-top: 20px; }
         .leaderboard-title { font-size: 1.2em; font-weight: bold; margin-bottom: 15px; color: #667eea; }
         .leaderboard-entry { display: flex; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 8px; margin-bottom: 8px; font-size: 0.9em; }
@@ -68,7 +68,7 @@
         .stats-section { margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
         .stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e0e0e0; }
         .daily-challenge-banner { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
-        .challenge-info { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 15px; }
+        .challenge-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
         .challenge-stat { background: rgba(255,255,255,0.2); padding: 10px; border-radius: 8px; }
         .hidden { display: none !important; }
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
@@ -86,8 +86,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>MEMORIX</h1>
-            <p class="subtitle">Web3 Memory Challenge - Infinite Levels & Daily Challenges</p>
+            <h1>🧠 MEMORIX</h1>
+            <p class="subtitle">Web3 Memory Challenge - Compete for Leaderboard Rewards!</p>
             <div class="wallet-section">
                 <button class="wallet-btn" id="connectBtn">Connect MetaMask</button>
                 <div class="wallet-address hidden" id="walletDisplay"></div>
@@ -97,13 +97,13 @@
         <div class="main-content">
             <div class="game-panel">
                 <div class="mode-selector">
-                    <button class="mode-btn active" data-mode="infinite">Infinite Mode</button>
-                    <button class="mode-btn" data-mode="daily">Daily Challenge</button>
+                    <button class="mode-btn active" data-mode="infinite">🎮 Infinite Mode</button>
+                    <button class="mode-btn" data-mode="daily">⭐ Daily Challenge</button>
                 </div>
 
                 <div id="dailyChallengeBanner" class="daily-challenge-banner hidden">
-                    <h3>Today's Daily Challenge</h3>
-                    <p>Complete perfectly within time to earn instant rewards!</p>
+                    <h3>⏰ Today's Daily Challenge</h3>
+                    <p>Complete perfectly to earn instant 0.01 ETH!</p>
                     <div class="challenge-info">
                         <div class="challenge-stat">
                             <div class="info-label">Grid Size</div>
@@ -112,6 +112,10 @@
                         <div class="challenge-stat">
                             <div class="info-label">Steps</div>
                             <div id="challengeSteps">8</div>
+                        </div>
+                        <div class="challenge-stat">
+                            <div class="info-label">Tries Left</div>
+                            <div id="challengeTries">3/3</div>
                         </div>
                     </div>
                     <p style="margin-top: 15px; font-size: 0.9em;" id="challengeStatus">Loading...</p>
@@ -148,14 +152,21 @@
 
             <div class="side-panel">
                 <div class="leaderboard">
-                    <div class="leaderboard-title">Top 10 Leaderboard</div>
+                    <div class="leaderboard-title">🏆 Top 10 Leaderboard</div>
                     <div id="leaderboardList">
                         <p style="text-align: center; color: #999;">Loading...</p>
                     </div>
+                    <p style="text-align: center; margin-top: 15px; color: #999; font-size: 0.85em;">
+                        Rewards distributed daily at 23:59 UTC
+                    </p>
                 </div>
 
                 <div class="stats-section">
-                    <h3 style="margin-bottom: 15px; color: #667eea;">Your Stats</h3>
+                    <h3 style="margin-bottom: 15px; color: #667eea;">📊 Your Stats</h3>
+                    <div class="stat-row">
+                        <span>Current Level</span>
+                        <strong id="statCurrentLevel">1</strong>
+                    </div>
                     <div class="stat-row">
                         <span>Total Rounds</span>
                         <strong id="statRounds">0</strong>
@@ -163,18 +174,6 @@
                     <div class="stat-row">
                         <span>Best Score</span>
                         <strong id="statBestScore">0</strong>
-                    </div>
-                    <div class="stat-row">
-                        <span>Current Streak</span>
-                        <strong id="statStreak">0</strong>
-                    </div>
-                    <div class="stat-row">
-                        <span>Perfect Rounds</span>
-                        <strong id="statPerfect">0</strong>
-                    </div>
-                    <div class="stat-row">
-                        <span>Timeouts</span>
-                        <strong id="statTimeouts">0</strong>
                     </div>
                     <div class="stat-row">
                         <span>Total Rewards</span>
@@ -202,7 +201,7 @@
                     <span>Time Taken:</span>
                     <strong id="modalTime">0s</strong>
                 </div>
-                <div class="modal-stat-row" id="modalRewardRow">
+                <div class="modal-stat-row hidden" id="modalRewardRow">
                     <span>Reward Earned:</span>
                     <strong id="modalReward">0 ETH</strong>
                 </div>
@@ -234,11 +233,11 @@
             isPlaying: false,
             currentStep: 0,
             currentLevel: 1,
-            timeLimit: 30000,
+            timeLimit: 20000,
             roundStartTime: null,
             telemetry: { clicks: [], sequenceStartTs: null },
             showDuration: 600,
-            intervalBetween: 300
+            intervalBetween: 400
         };
 
         const elements = {
@@ -258,7 +257,7 @@
         };
 
         const CONTRACT_ABI = [
-            "function playerStats(address) view returns (uint256 totalRounds, uint256 totalScore, uint256 totalRewards, uint256 bestScore, uint256 currentStreak, uint8 currentLevel, uint256 lastDailyChallengeDate, uint256 timeoutsCount, uint256 perfectRoundsCount)",
+            "function playerStats(address) view returns (uint256 totalRounds, uint256 totalScore, uint256 totalRewards, uint256 bestScore, uint256 currentLevel, uint256 dailyTriesUsed, uint256 lastDailyDate, bool dailyCompleted)",
             "function pendingRewards(address) view returns (uint256)",
             "function withdrawReward() external",
             "event RewardWithdrawn(address indexed player, uint256 amount)"
@@ -313,11 +312,9 @@
                     elements.totalScore.textContent = stats.totalScore;
                     elements.pendingRewards.textContent = `${parseFloat(stats.pendingRewards).toFixed(4)} ETH`;
 
+                    document.getElementById('statCurrentLevel').textContent = stats.currentLevel;
                     document.getElementById('statRounds').textContent = stats.totalRounds;
                     document.getElementById('statBestScore').textContent = stats.bestScore;
-                    document.getElementById('statStreak').textContent = stats.currentStreak;
-                    document.getElementById('statPerfect').textContent = stats.perfectRoundsCount || '0';
-                    document.getElementById('statTimeouts').textContent = stats.timeoutsCount || '0';
                     document.getElementById('statTotalRewards').textContent = `${parseFloat(stats.totalRewards).toFixed(4)} ETH`;
                 }
             } catch (error) {
@@ -356,13 +353,22 @@
                 const data = await response.json();
 
                 const statusEl = document.getElementById('challengeStatus');
-                if (data.hasCompleted) {
-                    statusEl.textContent = 'Completed today! Come back tomorrow.';
+                const triesEl = document.getElementById('challengeTries');
+                
+                triesEl.textContent = `${data.maxTries - data.triesUsed}/${data.maxTries}`;
+                
+                if (data.completed) {
+                    statusEl.textContent = '✅ Completed today! Come back tomorrow.';
                     statusEl.style.color = '#4caf50';
                     elements.startBtn.disabled = true;
                     elements.startBtn.textContent = 'Already Completed Today';
+                } else if (data.triesUsed >= data.maxTries) {
+                    statusEl.textContent = '❌ No tries left today. Come back tomorrow.';
+                    statusEl.style.color = '#f44336';
+                    elements.startBtn.disabled = true;
+                    elements.startBtn.textContent = 'No Tries Left';
                 } else {
-                    statusEl.textContent = 'Not attempted today - Play now!';
+                    statusEl.textContent = '🎯 Ready to play!';
                     statusEl.style.color = 'rgba(255,255,255,0.9)';
                     elements.startBtn.disabled = false;
                     elements.startBtn.textContent = 'Start Daily Challenge';
@@ -415,8 +421,7 @@
                 }
 
                 if (remaining <= 0 && gameState.isPlaying) {
-                    // call timeout handler
-                    handleTimeout().catch(err => console.error('handleTimeout error:', err));
+                    finishRound(true);
                 }
             }, 100);
         }
@@ -428,40 +433,6 @@
             }
             elements.timerCard.classList.remove('warning');
             elements.timerValue.textContent = '--';
-        }
-
-        // Fixed: async handleTimeout uses gameState stored timing values
-        async function handleTimeout() {
-            gameState.isPlaying = false;
-            stopTimer();
-
-            const cells = elements.grid.querySelectorAll('.cell');
-            cells.forEach(cell => cell.classList.add('disabled'));
-
-            const sequence = gameState.sequence || [];
-            const intervalBetween = gameState.intervalBetween || 300;
-            const showDuration = gameState.showDuration || 600;
-            const timeLimit = gameState.timeLimit || 30000;
-
-            // Replay the sequence so user can see what they missed
-            for (let i = 0; i < sequence.length; i++) {
-                await sleep(intervalBetween);
-                const idx = sequence[i];
-                const cell = cells[idx];
-                if (!cell) continue;
-                cell.classList.add('active');
-                await sleep(showDuration);
-                cell.classList.remove('active');
-            }
-
-            // Return control to the player
-            gameState.isWatching = false;
-            gameState.isPlaying = true;
-            cells.forEach(cell => cell.classList.remove('disabled'));
-            showStatus('Your turn! Click the sequence...', 'playing');
-
-            // start timer again for player-turn
-            startTimer(timeLimit);
         }
 
         function handleCellClick(index) {
@@ -511,7 +482,6 @@
                     body: JSON.stringify({
                         roundId: gameState.roundId,
                         playerAddress: connectedAddress,
-                        timeExpired: timeExpired,
                         clicks: gameState.userClicks.map((index, i) => ({
                             index,
                             clientTs: gameState.telemetry.clicks[i]?.clientTs || Date.now(),
@@ -526,9 +496,13 @@
 
                 if (result.success) {
                     await loadPlayerStats();
+                    await loadLeaderboard();
                     showResultModal(result, timeExpired);
                 } else {
                     if (result.error === 'ALREADY_COMPLETED') {
+                        showStatus(result.message, 'error');
+                        await checkDailyChallengeStatus();
+                    } else if (result.error === 'TRIES_EXCEEDED') {
                         showStatus(result.message, 'error');
                         await checkDailyChallengeStatus();
                     } else {
@@ -555,17 +529,25 @@
 
             if (timeExpired) {
                 title = '⏱️ Time Expired!';
-                message = `You ran out of time on Level ${gameState.currentLevel}. No rewards earned.`;
+                if (currentMode === 'infinite') {
+                    message = `Time ran out on Level ${result.currentLevel}. Your progress is saved for leaderboard ranking.`;
+                } else {
+                    message = 'Time expired! You still have tries left.';
+                }
             } else if (isPerfect) {
                 title = '🎉 Perfect!';
                 if (currentMode === 'infinite') {
-                    message = `Amazing! You completed Level ${gameState.currentLevel} perfectly! Level up!`;
+                    message = `Amazing! You completed Level ${result.currentLevel} perfectly! Moving to Level ${result.nextLevel}!`;
                 } else {
-                    message = 'Congratulations! You completed today\'s daily challenge perfectly!';
+                    message = `Congratulations! You completed today's daily challenge and earned ${result.rewardAmount} ETH!`;
                 }
             } else {
-                title = '😔 Not Quite!';
-                message = `You got ${result.correctSteps} out of ${result.totalSteps} steps correct.`;
+                title = '😔 Not Perfect!';
+                if (currentMode === 'infinite') {
+                    message = `You got ${result.correctSteps}/${result.totalSteps} correct on Level ${result.currentLevel}. Your progress is saved!`;
+                } else {
+                    message = `You got ${result.correctSteps}/${result.totalSteps} correct. You can try again!`;
+                }
             }
 
             document.getElementById('modalTitle').textContent = title;
@@ -575,10 +557,9 @@
             document.getElementById('modalTime').textContent = (result.timeElapsedMs / 1000).toFixed(2) + 's';
 
             const rewardRow = document.getElementById('modalRewardRow');
-            if (result.rewardEligible) {
+            if (result.rewardEarned && currentMode === 'daily') {
                 rewardRow.classList.remove('hidden');
-                const rewardAmount = (result.correctSteps * 0.0015).toFixed(4);
-                document.getElementById('modalReward').textContent = `${rewardAmount} ETH`;
+                document.getElementById('modalReward').textContent = `${result.rewardAmount} ETH`;
             } else {
                 rewardRow.classList.add('hidden');
             }
@@ -588,12 +569,13 @@
 
             if (canContinue) {
                 continueBtn.classList.remove('hidden');
-                continueBtn.textContent = `Continue to Level ${gameState.currentLevel}`;
+                continueBtn.textContent = `Continue to Level ${result.nextLevel}`;
                 closeBtn.textContent = 'Stop Playing';
+                gameState.currentLevel = result.nextLevel;
             } else {
                 continueBtn.classList.add('hidden');
                 if (currentMode === 'infinite') {
-                    closeBtn.textContent = 'Try Again';
+                    closeBtn.textContent = 'Close';
                 } else {
                     closeBtn.textContent = 'Close';
                 }
@@ -646,6 +628,103 @@
             return new Promise(resolve => setTimeout(resolve, ms));
         }
 
+        async function playSequence(sequence, showDuration = 600, intervalBetween = 300, timeLimit = 20000) {
+            gameState.showDuration = showDuration;
+            gameState.intervalBetween = intervalBetween;
+            gameState.timeLimit = timeLimit;
+            gameState.sequence = sequence;
+            gameState.userClicks = [];
+            gameState.currentStep = 0;
+            gameState.isWatching = true;
+            gameState.isPlaying = false;
+
+            showStatus(`Watch carefully! ${sequence.length} steps...`, 'watching');
+
+            const cells = elements.grid.querySelectorAll('.cell');
+            cells.forEach(cell => cell.classList.add('disabled'));
+
+            await sleep(800);
+
+            for (let i = 0; i < sequence.length; i++) {
+                const idx = sequence[i];
+                const cell = cells[idx];
+                if (!cell) continue;
+
+                cell.classList.add('active');
+                await sleep(showDuration);
+                cell.classList.remove('active');
+
+                if (i < sequence.length - 1) await sleep(intervalBetween);
+            }
+
+            gameState.isWatching = false;
+            gameState.isPlaying = true;
+            cells.forEach(cell => cell.classList.remove('disabled'));
+            showStatus('Your turn! Click the sequence...', 'playing');
+
+            startTimer(timeLimit);
+        }
+
+        async function startGame() {
+            if (!connectedAddress) {
+                showStatus('Please connect your wallet first', 'error');
+                return;
+            }
+
+            showStatus('Starting new round...', 'watching');
+            elements.startBtn.disabled = true;
+
+            try {
+                const endpoint = currentMode === 'infinite' ? 'infinite' : 'daily';
+                const bodyData = {
+                    playerAddress: connectedAddress
+                };
+                
+                if (currentMode === 'infinite') {
+                    bodyData.level = gameState.currentLevel;
+                }
+                
+                const response = await fetch(`${API_URL}/round/start/${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(bodyData)
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    if (data.error === 'ALREADY_COMPLETED' || data.error === 'TRIES_EXCEEDED') {
+                        showStatus(data.message, 'error');
+                        await checkDailyChallengeStatus();
+                        return;
+                    }
+                    throw new Error(data.error || 'Failed to start round');
+                }
+
+                gameState.roundId = data.roundId;
+                gameState.sequence = data.sequence || [];
+                gameState.gridSize = data.gridSize || 3;
+                gameState.timeLimit = data.timeLimit || 20000;
+                gameState.userClicks = [];
+                gameState.currentStep = 0;
+                gameState.telemetry.clicks = [];
+                gameState.telemetry.sequenceStartTs = Date.now();
+
+                createGrid(data.gridSize || 3);
+                await playSequence(
+                    data.sequence || [], 
+                    data.showDuration || 600, 
+                    data.intervalBetween || 300, 
+                    data.timeLimit || 20000
+                );
+
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+                elements.startBtn.disabled = false;
+                stopTimer();
+            }
+        }
+
         elements.connectBtn.addEventListener('click', connectWallet);
         elements.startBtn.addEventListener('click', startGame);
         elements.withdrawBtn.addEventListener('click', withdrawRewards);
@@ -665,6 +744,7 @@
                 } else {
                     elements.dailyBanner.classList.add('hidden');
                     document.getElementById('scoreLabel').textContent = 'Level';
+                    elements.scoreValue.textContent = gameState.currentLevel;
                     if (connectedAddress) {
                         elements.startBtn.disabled = false;
                         elements.startBtn.textContent = 'Start Game';
@@ -685,7 +765,6 @@
             }
         });
 
-        // Safer event listener for accounts changes
         if (window.ethereum && window.ethereum.on) {
             window.ethereum.on('accountsChanged', (accounts) => {
                 if (accounts.length === 0) {
@@ -696,104 +775,6 @@
             });
         }
 
-        // Initial setup helpers and game flow
-
-        // Fully implemented playSequence: animates and hands control to player
-        async function playSequence(sequence, showDuration = 600, intervalBetween = 300, timeLimit = 30000) {
-            gameState.showDuration = showDuration;
-            gameState.intervalBetween = intervalBetween;
-            gameState.timeLimit = timeLimit;
-            gameState.sequence = sequence;
-            gameState.userClicks = [];
-            gameState.currentStep = 0;
-            gameState.isWatching = true;
-            gameState.isPlaying = false;
-
-            showStatus(`Watch carefully! ${sequence.length} steps...`, 'watching');
-
-            const cells = elements.grid.querySelectorAll('.cell');
-            // disable user interaction while sequence is playing
-            cells.forEach(cell => cell.classList.add('disabled'));
-
-            // small delay before starting
-            await sleep(400);
-
-            for (let i = 0; i < sequence.length; i++) {
-                const idx = sequence[i];
-                const cell = cells[idx];
-                if (!cell) continue;
-
-                // highlight
-                cell.classList.add('active');
-                await sleep(showDuration);
-                cell.classList.remove('active');
-
-                // wait between elements (but not after last)
-                if (i < sequence.length - 1) await sleep(intervalBetween);
-            }
-
-            // sequence finished — enable user interaction
-            gameState.isWatching = false;
-            gameState.isPlaying = true;
-            cells.forEach(cell => cell.classList.remove('disabled'));
-            showStatus('Your turn! Click the sequence...', 'playing');
-
-            // start the timer for player's response
-            startTimer(timeLimit);
-        }
-
-        async function startGame() {
-            if (!connectedAddress) {
-                showStatus('Please connect your wallet first', 'error');
-                return;
-            }
-
-            showStatus('Starting new round...', 'watching');
-            elements.startBtn.disabled = true;
-
-            try {
-                const endpoint = currentMode === 'infinite' ? 'infinite' : 'daily';
-                const response = await fetch(`${API_URL}/round/start/${endpoint}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        playerAddress: connectedAddress,
-                        level: gameState.currentLevel
-                    })
-                });
-
-                const data = await response.json();
-
-                if (!data.success) {
-                    if (data.error === 'ALREADY_COMPLETED') {
-                        showStatus(data.message, 'error');
-                        await checkDailyChallengeStatus();
-                        return;
-                    }
-                    throw new Error(data.error || 'Failed to start round');
-                }
-
-                gameState.roundId = data.roundId;
-                // server sequence and grid/timing
-                gameState.sequence = data.sequence || [];
-                gameState.gridSize = data.gridSize || 3;
-                gameState.timeLimit = data.timeLimit || 30000;
-                gameState.userClicks = [];
-                gameState.currentStep = 0;
-                gameState.telemetry.clicks = [];
-                gameState.telemetry.sequenceStartTs = Date.now();
-
-                createGrid(data.gridSize || 3);
-                await playSequence(data.sequence || [], data.showDuration || 600, data.intervalBetween || 300, data.timeLimit || 30000);
-
-            } catch (error) {
-                showStatus(`Error: ${error.message}`, 'error');
-                elements.startBtn.disabled = false;
-                stopTimer();
-            }
-        }
-
-        // initial UI
         createGrid(3);
         loadLeaderboard();
         setInterval(loadLeaderboard, 30000);

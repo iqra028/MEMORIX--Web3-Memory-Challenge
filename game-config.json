@@ -1,90 +1,111 @@
 {
   "game": {
     "name": "Memorix",
-    "version": "1.0.0",
-    "description": "Simon-style Web3 memory game with blockchain rewards"
+    "version": "2.0.0",
+    "description": "Simon-style Web3 memory game with infinite levels and daily challenges"
   },
-  "grid": {
-    "defaultSize": 3,
-    "minSize": 2,
-    "maxSize": 10,
-    "allowCustomSize": true
+  "infiniteMode": {
+    "enabled": true,
+    "startingLevel": 1,
+    "baseTimeLimit": 20000,
+    "baseDifficulty": {
+      "gridSize": 3,
+      "steps": 3,
+      "showDuration": 600,
+      "intervalBetween": 400
+    },
+    "difficultyScaling": {
+      "gridSizeIncreaseEvery": 5,
+      "maxGridSize": 6,
+      "stepsIncreaseRate": 0.5,
+      "timeLimitDecreasePerLevel": 200,
+      "minTimeLimit": 10000,
+      "showDurationDecreasePerLevel": 15,
+      "minShowDuration": 200,
+      "intervalDecreasePerLevel": 10,
+      "minInterval": 150
+    },
+    "scoring": {
+      "basePointsPerStep": 10,
+      "timeBonusPerMs": 0.1,
+      "perfectRoundMultiplier": 1.5,
+      "levelMultiplier": 1.2
+    },
+    "rewards": {
+      "rewardPerLevel": "0.0001",
+      "currency": "ETH"
+    }
   },
-  "rounds": {
-    "types": ["NORMAL", "TIMED", "LADDER"],
-    "defaultType": "NORMAL",
-    "minSteps": 3,
-    "maxSteps": 20,
-    "defaultSteps": 5
+  "dailyChallenge": {
+    "scheduleUTC": "00:00",
+    "rewardPerCompletion": 10,
+    "maxTriesPerDay": 3,
+    "rewards": {
+      "rewardPerCompletion": 0.1
+    },
+    "challenge": {
+      "gridSize": 4,
+      "steps": 4,
+      "showDuration": 500,
+      "intervalBetween": 300,
+      "timeLimit": 25000,
+      "difficulty": "Medium"
+    }
   },
-  "timing": {
-    "show_duration_ms": 500,
-    "interval_between_steps_ms": 300,
-    "input_timeout_ms": 30000,
-    "fast_time_threshold_ms": 10000
-  },
-  "scoring": {
-    "base_points_per_step": 10,
-    "time_bonus_divisor": 100,
-    "perfect_round_multiplier": 1.5,
-    "accuracy_weight": 0.5
-  },
-  "rewards": {
-    "base_reward_per_step_eth": "0.001",
-    "time_bonus_multiplier": 100,
-    "perfect_round_bonus_percent": 50,
-    "min_score_for_reward": 0
+  "leaderboard": {
+    "enabled": true,
+    "topPlayersCount": 10,
+    "updateSchedule": {
+      "dailyResetTime": "7:40",
+      "timezone": "UTC"
+    },
+    "rewardDistribution": {
+      "totalPool": "1.0",
+      "currency": "ETH",
+      "percentages": [
+        30,
+        20,
+        15,
+        10,
+        8,
+        6,
+        4,
+        3,
+        2,
+        2
+      ]
+    },
+    "rankingCriteria": {
+      "primary": "totalScore",
+      "secondary": "currentLevel",
+      "tertiary": "bestScore"
+    }
   },
   "antiCheat": {
-    "min_reaction_time_ms": 100,
-    "max_reaction_time_ms": 5000,
-    "click_position_variance_threshold": 50,
-    "suspicious_pattern_threshold": 0.8,
-    "require_verification": true
-  },
-  "telemetry": {
     "enabled": true,
-    "capture_fps": true,
-    "capture_rtt": true,
-    "capture_click_positions": true,
-    "anonymize_ip": true
+    "minReactionTimeMs": 100,
+    "maxReactionTimeMs": 5000,
+    "clickPositionVarianceThreshold": 50,
+    "suspiciousPatternThreshold": 0.8,
+    "requireVerification": true
   },
-  "difficulty": {
-    "levels": [
-      {
-        "name": "Easy",
-        "gridSize": 3,
-        "steps": 3,
-        "showDuration": 800,
-        "intervalBetween": 500
-      },
-      {
-        "name": "Medium",
-        "gridSize": 3,
-        "steps": 5,
-        "showDuration": 600,
-        "intervalBetween": 400
-      },
-      {
-        "name": "Hard",
-        "gridSize": 4,
-        "steps": 7,
-        "showDuration": 400,
-        "intervalBetween": 300
-      },
-      {
-        "name": "Expert",
-        "gridSize": 5,
-        "steps": 10,
-        "showDuration": 300,
-        "intervalBetween": 200
-      }
-    ]
+  "blockchain": {
+    "network": "localhost",
+    "chainId": 31337,
+    "rpcUrl": "http://127.0.0.1:8545",
+    "contractAddress": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+    "gasLimit": 500000
   },
-  "network": {
-    "localhost": {
-      "url": "http://127.0.0.1:8545",
-      "chainId": 31337
-    }
+  "server": {
+    "apiUrl": "http://localhost:3001/api",
+    "port": 3001,
+    "corsEnabled": true,
+    "telemetryEnabled": true
+  },
+  "ui": {
+    "showFPS": false,
+    "animationSpeed": 1,
+    "soundEnabled": false,
+    "theme": "default"
   }
 }
