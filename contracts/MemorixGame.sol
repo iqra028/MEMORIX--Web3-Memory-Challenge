@@ -41,16 +41,20 @@ contract MemorixGame {
     mapping(address => uint256) public pendingRewards;
     mapping(address => PlayerStats) public playerStats;
     
-    // Daily challenge tracking: date => player => (triesUsed, completed)
+    // Daily challenge tracking
     mapping(uint256 => mapping(address => uint256)) public dailyTriesUsed;
     mapping(uint256 => mapping(address => bool)) public dailyCompleted;
     
-    // Leaderboard
-    LeaderboardEntry[10] public leaderboard;
+    // Leaderboard - store ALL players who have played
+    address[] public allPlayers;
+    mapping(address => bool) public hasPlayed;
+    mapping(address => uint256) public playerIndex;
+    
+    LeaderboardEntry[10] public topTenLeaderboard;
     uint256 public lastLeaderboardReset;
 
     // Configurable rewards
-    uint256 public dailyReward = 0.01 ether; // Fixed reward for completing daily challenge
+    uint256 public dailyReward = 0.01 ether;
     uint256 public leaderboardTotalPool = 1 ether;
     
     event RoundRecorded(
@@ -63,6 +67,7 @@ contract MemorixGame {
     event RewardWithdrawn(address indexed player, uint256 amount);
     event DailyCompleted(address indexed player, uint256 date);
     event LeaderboardUpdated(uint256 timestamp);
+    event LeaderboardReset(uint256 timestamp);
 
     constructor() {
         owner = msg.sender;
@@ -74,7 +79,16 @@ contract MemorixGame {
         _;
     }
 
-    // Record infinite mode round (NO instant reward, only for leaderboard)
+    // Add player to tracking list if first time
+    function addPlayerIfNew(address player) internal {
+        if (!hasPlayed[player]) {
+            hasPlayed[player] = true;
+            playerIndex[player] = allPlayers.length;
+            allPlayers.push(player);
+        }
+    }
+
+    // Record infinite mode round
     function recordInfiniteRound(
         address player,
         uint256 score,
@@ -84,6 +98,8 @@ contract MemorixGame {
     ) external onlyOwner {
         require(verified, "Not verified");
         
+        addPlayerIfNew(player);
+        
         rounds[nextRoundId] = Round({
             id: nextRoundId,
             player: player,
@@ -91,7 +107,7 @@ contract MemorixGame {
             level: level,
             score: score,
             timeElapsedMs: timeElapsedMs,
-            reward: 0, // No instant reward
+            reward: 0,
             timestamp: block.timestamp,
             verified: verified
         });
@@ -101,7 +117,7 @@ contract MemorixGame {
         PlayerStats storage stats = playerStats[player];
         stats.totalRounds++;
         stats.totalScore += score;
-        stats.currentLevel = level; // Update current level
+        stats.currentLevel = level;
         
         if (score > stats.bestScore) {
             stats.bestScore = score;
@@ -111,7 +127,7 @@ contract MemorixGame {
         nextRoundId++;
     }
 
-    // Record daily challenge (single challenge, not 4 rounds)
+    // Record daily challenge
     function recordDailyChallenge(
         address player,
         uint256 date,
@@ -124,12 +140,12 @@ contract MemorixGame {
         require(dailyTriesUsed[date][player] < 3, "Max tries exceeded");
         require(!dailyCompleted[date][player], "Already completed today");
         
-        // Increment tries
+        addPlayerIfNew(player);
+        
         dailyTriesUsed[date][player]++;
         
         uint256 reward = 0;
         
-        // Only reward if passed
         if (passed) {
             dailyCompleted[date][player] = true;
             reward = dailyReward;
@@ -142,7 +158,6 @@ contract MemorixGame {
             emit DailyCompleted(player, date);
         }
         
-        // Record round
         rounds[nextRoundId] = Round({
             id: nextRoundId,
             player: player,
@@ -167,7 +182,7 @@ contract MemorixGame {
         nextRoundId++;
     }
 
-    // Update leaderboard and distribute rewards
+    // Update leaderboard and distribute rewards to top 10
     function updateLeaderboard(
         address[10] memory topPlayers,
         uint256[10] memory scores,
@@ -176,13 +191,15 @@ contract MemorixGame {
         // Reward distribution (30%, 20%, 15%, 10%, 8%, 6%, 4%, 3%, 2%, 2%)
         uint256[10] memory rewardPercents = [uint256(30), 20, 15, 10, 8, 6, 4, 3, 2, 2];
 
+        // Save top 10
         for (uint8 i = 0; i < 10; i++) {
-            leaderboard[i] = LeaderboardEntry({
+            topTenLeaderboard[i] = LeaderboardEntry({
                 player: topPlayers[i],
                 score: scores[i],
                 level: levels[i]
             });
             
+            // Distribute rewards to top 10
             if (topPlayers[i] != address(0)) {
                 uint256 reward = (leaderboardTotalPool * rewardPercents[i]) / 100;
                 pendingRewards[topPlayers[i]] += reward;
@@ -192,6 +209,30 @@ contract MemorixGame {
 
         lastLeaderboardReset = block.timestamp;
         emit LeaderboardUpdated(block.timestamp);
+    }
+
+    // Reset daily stats for ALL players
+    function resetDailyStats(address[] memory players) external onlyOwner {
+        for (uint256 i = 0; i < players.length; i++) {
+            address player = players[i];
+            if (player != address(0)) {
+                PlayerStats storage stats = playerStats[player];
+                stats.totalScore = 0;
+                stats.currentLevel = 1;
+                stats.bestScore = 0;
+            }
+        }
+        emit LeaderboardReset(block.timestamp);
+    }
+
+    // Get all players (for full leaderboard)
+    function getAllPlayers() external view returns (address[] memory) {
+        return allPlayers;
+    }
+
+    // Get player count
+    function getPlayerCount() external view returns (uint256) {
+        return allPlayers.length;
     }
 
     function withdrawReward() external {
@@ -215,7 +256,7 @@ contract MemorixGame {
     }
 
     function getLeaderboard() external view returns (LeaderboardEntry[10] memory) {
-        return leaderboard;
+        return topTenLeaderboard;
     }
 
     function getPlayerRounds(address player) external view returns (uint256[] memory) {

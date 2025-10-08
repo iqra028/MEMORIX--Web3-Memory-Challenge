@@ -1,15 +1,109 @@
 {
-  "difficulty_levels": {
-    "easy": { "grid_size": 3, "steps": 3, "show_duration_ms": 1000, "interval_ms": 600 },
-    "medium": { "grid_size": 4, "steps": 5, "show_duration_ms": 800, "interval_ms": 500 },
-    "hard": { "grid_size": 5, "steps": 7, "show_duration_ms": 600, "interval_ms": 400 }
+  "game": {
+    "name": "Memorix",
+    "version": "2.0.0",
+    "description": "Simon-style Web3 memory game with infinite levels and daily challenges"
   },
-  "reward_rules": {
-    "base": 1000000000000000,
-    "multiplier": { "easy": 1, "medium": 1.5, "hard": 2 }
+  "infiniteMode": {
+    "enabled": true,
+    "startingLevel": 1,
+    "baseTimeLimit": 20000,
+    "baseDifficulty": {
+      "gridSize": 3,
+      "steps": 3,
+      "showDuration": 600,
+      "intervalBetween": 400
+    },
+    "difficultyScaling": {
+      "gridSizeIncreaseEvery": 5,
+      "maxGridSize": 6,
+      "stepsIncreaseRate": 0.5,
+      "timeLimitDecreasePerLevel": 200,
+      "minTimeLimit": 10000,
+      "showDurationDecreasePerLevel": 15,
+      "minShowDuration": 200,
+      "intervalDecreasePerLevel": 10,
+      "minInterval": 150
+    },
+    "scoring": {
+      "basePointsPerStep": 10,
+      "timeBonusPerMs": 0.1,
+      "perfectRoundMultiplier": 1.5,
+      "levelMultiplier": 1.2
+    },
+    "rewards": {
+      "rewardPerLevel": "0.0001",
+      "currency": "ETH"
+    }
   },
-  "feature_flags": {
-    "timed_mode_enabled": true,
-    "ladder_mode_enabled": false
+  "dailyChallenge": {
+    "maxTriesPerDay": 3,
+    "rewards": {
+      "rewardPerCompletion": 0.01
+    },
+    "challenge": {
+      "gridSize": 4,
+      "steps": 4,
+      "showDuration": 500,
+      "intervalBetween": 300,
+      "timeLimit": 25000,
+      "difficulty": "Medium"
+    }
+  },
+  "leaderboard": {
+    "enabled": true,
+    "topPlayersCount": 10,
+    "updateSchedule": {
+      "dailyResetTime": "19:41",
+      "timezone": "UTC"
+    },
+    "rewardDistribution": {
+      "totalPool": "1.0",
+      "currency": "ETH",
+      "percentages": [
+        30,
+        20,
+        15,
+        10,
+        8,
+        6,
+        4,
+        3,
+        2,
+        2
+      ]
+    },
+    "rankingCriteria": {
+      "primary": "currentLevel",
+      "secondary": "totalScore",
+      "tertiary": "bestScore"
+    }
+  },
+  "antiCheat": {
+    "enabled": true,
+    "minReactionTimeMs": 100,
+    "maxReactionTimeMs": 5000,
+    "clickPositionVarianceThreshold": 50,
+    "suspiciousPatternThreshold": 0.8,
+    "requireVerification": true
+  },
+  "blockchain": {
+    "network": "localhost",
+    "chainId": 31337,
+    "rpcUrl": "http://127.0.0.1:8545",
+    "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "gasLimit": 500000
+  },
+  "server": {
+    "apiUrl": "http://localhost:3001/api",
+    "port": 3001,
+    "corsEnabled": true,
+    "telemetryEnabled": true
+  },
+  "ui": {
+    "showFPS": false,
+    "animationSpeed": 1,
+    "soundEnabled": false,
+    "theme": "default"
   }
 }

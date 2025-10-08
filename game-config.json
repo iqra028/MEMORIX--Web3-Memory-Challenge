@@ -56,7 +56,7 @@
     "enabled": true,
     "topPlayersCount": 10,
     "updateSchedule": {
-      "dailyResetTime": "7:40",
+      "dailyResetTime": "00:00",
       "timezone": "UTC"
     },
     "rewardDistribution": {
@@ -93,7 +93,7 @@
     "network": "localhost",
     "chainId": 31337,
     "rpcUrl": "http://127.0.0.1:8545",
-    "contractAddress": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+    "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
     "gasLimit": 500000
   },
   "server": {

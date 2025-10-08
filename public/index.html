@@ -6,6 +6,7 @@
     <title>Memorix - Web3 Memory Game</title>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
+        /* (your existing CSS unchanged) */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -60,16 +61,25 @@
         .status.playing { background: #d1ecf1; color: #0c5460; }
         .status.success { background: #d4edda; color: #155724; }
         .status.error { background: #f8d7da; color: #721c24; }
-        .leaderboard { margin-top: 20px; }
-        .leaderboard-title { font-size: 1.2em; font-weight: bold; margin-bottom: 15px; color: #667eea; }
-        .leaderboard-entry { display: flex; justify-content: space-between; padding: 10px; background: #f5f5f5; border-radius: 8px; margin-bottom: 8px; font-size: 0.9em; }
+        .leaderboard { margin-top: 20px; max-height: 600px; overflow-y: auto; }
+        .leaderboard-title { font-size: 1.2em; font-weight: bold; margin-bottom: 15px; color: #667eea; display: flex; justify-content: space-between; align-items: center; }
+        .leaderboard-count { font-size: 0.9em; color: #999; }
+        .leaderboard-entry { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f5f5f5; border-radius: 8px; margin-bottom: 8px; font-size: 0.9em; }
         .leaderboard-entry.top-3 { background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); font-weight: bold; }
-        .rank { font-weight: bold; color: #667eea; min-width: 30px; }
-        .stats-section { margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
-        .stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e0e0e0; }
+        .leaderboard-entry.current-user { border: 2px solid #667eea; background: #e8f4f8; }
+        .rank { font-weight: bold; color: #667eea; min-width: 40px; }
+        .rank.gold { color: #ffd700; }
+        .rank.silver { color: #c0c0c0; }
+        .rank.bronze { color: #cd7f32; }
+        .player-info { flex: 1; display: flex; align-items: center; gap: 10px; }
+        .player-address { font-family: monospace; font-size: 0.85em; }
+        .player-stats { display: flex; gap: 15px; align-items: center; }
+        .stat-badge { background: rgba(102, 126, 234, 0.1); padding: 4px 8px; border-radius: 5px; font-size: 0.85em; }
         .daily-challenge-banner { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
         .challenge-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
         .challenge-stat { background: rgba(255,255,255,0.2); padding: 10px; border-radius: 8px; }
+        .stats-section { margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e0e0e0; }
         .hidden { display: none !important; }
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 40px; border-radius: 20px; max-width: 500px; text-align: center; }
@@ -77,9 +87,23 @@
         .modal-message { font-size: 1.1em; margin-bottom: 20px; color: #666; }
         .modal-stats { background: #f5f5f5; padding: 20px; border-radius: 10px; margin: 20px 0; }
         .modal-stat-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.1em; }
+        .leaderboard-header { background: #667eea; color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-size: 0.85em; display: flex; justify-content: space-between; }
         @media (max-width: 968px) {
             .main-content { grid-template-columns: 1fr; }
             .game-info { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        /* toast */
+        .toast {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            background: #333;
+            color: white;
+            padding: 12px 18px;
+            border-radius: 8px;
+            z-index: 2000;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
         }
     </style>
 </head>
@@ -87,7 +111,7 @@
     <div class="container">
         <div class="header">
             <h1>🧠 MEMORIX</h1>
-            <p class="subtitle">Web3 Memory Challenge - Compete for Leaderboard Rewards!</p>
+            <p class="subtitle">Web3 Memory Challenge - Real-time Leaderboard Rankings!</p>
             <div class="wallet-section">
                 <button class="wallet-btn" id="connectBtn">Connect MetaMask</button>
                 <div class="wallet-address hidden" id="walletDisplay"></div>
@@ -152,12 +176,22 @@
 
             <div class="side-panel">
                 <div class="leaderboard">
-                    <div class="leaderboard-title">🏆 Top 10 Leaderboard</div>
+                    <div class="leaderboard-title">
+                        <span>🏆 Live Leaderboard</span>
+                        <span class="leaderboard-count" id="playerCount">0 players</span>
+                    </div>
+                    <div class="leaderboard-header">
+                        <span style="width: 40px;">Rank</span>
+                        <span style="flex: 1;">Player</span>
+                        <span style="width: 60px;">Level</span>
+                        <span style="width: 80px;">Score</span>
+                    </div>
                     <div id="leaderboardList">
-                        <p style="text-align: center; color: #999;">Loading...</p>
+                        <p style="text-align: center; color: #999; padding: 20px;">Loading...</p>
                     </div>
                     <p style="text-align: center; margin-top: 15px; color: #999; font-size: 0.85em;">
-                        Rewards distributed daily at 23:59 UTC
+                        Top 10 rewarded daily at 23:59 UTC<br>
+                        Scores reset after payout
                     </p>
                 </div>
 
@@ -213,6 +247,9 @@
         </div>
     </div>
 
+    <!-- toast container -->
+    <div id="toastContainer"></div>
+
     <script>
         const API_URL = 'http://localhost:3001/api';
         const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3';
@@ -223,6 +260,12 @@
         let connectedAddress = null;
         let currentMode = 'infinite';
         let timerInterval = null;
+        let leaderboardInterval = null;
+        let pendingPollInterval = null;
+
+        // track last-known values so we only update when something changed
+        let lastPendingRewards = '0';
+        let lastLeaderboardHash = null;
 
         let gameState = {
             roundId: null,
@@ -253,15 +296,31 @@
             dailyBanner: document.getElementById('dailyChallengeBanner'),
             timerValue: document.getElementById('timerValue'),
             timerCard: document.getElementById('timerCard'),
-            resultModal: document.getElementById('resultModal')
+            resultModal: document.getElementById('resultModal'),
+            playerCount: document.getElementById('playerCount'),
+            toastContainer: document.getElementById('toastContainer')
         };
 
+        // small ABI for event listening and withdraw
         const CONTRACT_ABI = [
             "function playerStats(address) view returns (uint256 totalRounds, uint256 totalScore, uint256 totalRewards, uint256 bestScore, uint256 currentLevel, uint256 dailyTriesUsed, uint256 lastDailyDate, bool dailyCompleted)",
             "function pendingRewards(address) view returns (uint256)",
             "function withdrawReward() external",
-            "event RewardWithdrawn(address indexed player, uint256 amount)"
+            "event RewardWithdrawn(address indexed player, uint256 amount)",
+            "event DailyCompleted(address indexed player, uint256 date)",
+            "event LeaderboardUpdated(uint256 timestamp)"
         ];
+
+        // show a toast message
+        function showToast(msg, timeout = 4000) {
+            const t = document.createElement('div');
+            t.className = 'toast';
+            t.textContent = msg;
+            elements.toastContainer.appendChild(t);
+            setTimeout(() => {
+                t.remove();
+            }, timeout);
+        }
 
         async function connectWallet() {
             if (typeof window.ethereum === 'undefined') {
@@ -286,6 +345,13 @@
                 await loadPlayerStats();
                 await loadLeaderboard();
 
+                // Start auto-refresh for leaderboard and pending rewards
+                startLeaderboardAutoRefresh();
+                startPendingRewardsPoll();
+
+                // start listening to on-chain events (using MetaMask provider primarily)
+                startEventListeners(web3Provider);
+
                 if (currentMode === 'daily') {
                     await checkDailyChallengeStatus();
                 }
@@ -298,8 +364,22 @@
             }
         }
 
-        async function loadPlayerStats() {
-            if (!connectedAddress) return;
+        function startLeaderboardAutoRefresh() {
+            if (leaderboardInterval) clearInterval(leaderboardInterval);
+            leaderboardInterval = setInterval(() => {
+                loadLeaderboard();
+            }, 10000); // Refresh every 10 seconds
+        }
+
+        function startPendingRewardsPoll() {
+            if (pendingPollInterval) clearInterval(pendingPollInterval);
+            pendingPollInterval = setInterval(() => {
+                if (connectedAddress) loadPlayerStats(true); // true = silent / only-update-if-changed
+            }, 5000); // check every 5s
+        }
+
+        async function loadPlayerStats(silent = false) {
+            if (!connectedAddress) return null;
 
             try {
                 const response = await fetch(`${API_URL}/player/${connectedAddress}/stats`);
@@ -316,10 +396,28 @@
                     document.getElementById('statRounds').textContent = stats.totalRounds;
                     document.getElementById('statBestScore').textContent = stats.bestScore;
                     document.getElementById('statTotalRewards').textContent = `${parseFloat(stats.totalRewards).toFixed(4)} ETH`;
+
+                    // If pendingRewards changed since last check, notify and enable withdraw
+                    if (!silent) {
+                        lastPendingRewards = stats.pendingRewards;
+                    } else {
+                        if (stats.pendingRewards !== lastPendingRewards) {
+                            // reward balance changed — update UI and show toast
+                            lastPendingRewards = stats.pendingRewards;
+                            showToast(`🎉 New pending rewards: ${parseFloat(stats.pendingRewards).toFixed(4)} ETH`);
+                            elements.pendingRewards.textContent = `${parseFloat(stats.pendingRewards).toFixed(4)} ETH`;
+                            elements.withdrawBtn.disabled = false;
+                            // refresh leaderboard too because payouts may have changed rankings
+                            loadLeaderboard();
+                        }
+                    }
+
+                    return stats;
                 }
             } catch (error) {
                 console.error('Error loading stats:', error);
             }
+            return null;
         }
 
         async function loadLeaderboard() {
@@ -330,15 +428,40 @@
                 const list = document.getElementById('leaderboardList');
 
                 if (data.success && data.leaderboard.length > 0) {
-                    list.innerHTML = data.leaderboard.map(entry => `
-                        <div class="leaderboard-entry ${entry.rank <= 3 ? 'top-3' : ''}">
-                            <span class="rank">#${entry.rank}</span>
-                            <span>${entry.address.substring(0, 6)}...${entry.address.substring(38)}</span>
-                            <span>Lv${entry.level}</span>
-                        </div>
-                    `).join('');
+                    elements.playerCount.textContent = `${data.totalPlayers || data.leaderboard.length} players`;
+
+                    // small hash of leaderboard to detect change
+                    const hash = JSON.stringify(data.leaderboard.slice(0,20));
+                    if (hash !== lastLeaderboardHash) {
+                        lastLeaderboardHash = hash;
+                        list.innerHTML = data.leaderboard.map(entry => {
+                            const isCurrentUser = connectedAddress && entry.address.toLowerCase() === connectedAddress.toLowerCase();
+                            const isTop3 = entry.rank <= 3;
+                            let rankClass = '';
+                            if (entry.rank === 1) rankClass = 'gold';
+                            else if (entry.rank === 2) rankClass = 'silver';
+                            else if (entry.rank === 3) rankClass = 'bronze';
+
+                            const entryClass = `leaderboard-entry ${isTop3 ? 'top-3' : ''} ${isCurrentUser ? 'current-user' : ''}`;
+
+                            return `
+                                <div class="${entryClass}">
+                                    <span class="rank ${rankClass}">#${entry.rank}</span>
+                                    <div class="player-info">
+                                        <span class="player-address">${entry.address.substring(0, 6)}...${entry.address.substring(38)}</span>
+                                        ${isCurrentUser ? '<span style="color: #667eea; font-weight: bold;">(You)</span>' : ''}
+                                    </div>
+                                    <div class="player-stats">
+                                        <span class="stat-badge">Lv${entry.level}</span>
+                                        <span class="stat-badge">${entry.score}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
                 } else {
-                    list.innerHTML = '<p style="text-align: center; color: #999;">No players yet. Be the first!</p>';
+                    elements.playerCount.textContent = '0 players';
+                    list.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No players yet. Be the first!</p>';
                 }
             } catch (error) {
                 console.error('Error loading leaderboard:', error);
@@ -354,9 +477,9 @@
 
                 const statusEl = document.getElementById('challengeStatus');
                 const triesEl = document.getElementById('challengeTries');
-                
+
                 triesEl.textContent = `${data.maxTries - data.triesUsed}/${data.maxTries}`;
-                
+
                 if (data.completed) {
                     statusEl.textContent = '✅ Completed today! Come back tomorrow.';
                     statusEl.style.color = '#4caf50';
@@ -679,11 +802,11 @@
                 const bodyData = {
                     playerAddress: connectedAddress
                 };
-                
+
                 if (currentMode === 'infinite') {
                     bodyData.level = gameState.currentLevel;
                 }
-                
+
                 const response = await fetch(`${API_URL}/round/start/${endpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -712,9 +835,9 @@
 
                 createGrid(data.gridSize || 3);
                 await playSequence(
-                    data.sequence || [], 
-                    data.showDuration || 600, 
-                    data.intervalBetween || 300, 
+                    data.sequence || [],
+                    data.showDuration || 600,
+                    data.intervalBetween || 300,
                     data.timeLimit || 20000
                 );
 
@@ -725,6 +848,65 @@
             }
         }
 
+        // Event listeners + fallback polling
+        async function startEventListeners(primaryProvider) {
+            // prefer the provider from MetaMask if available
+            let providerForEvents = null;
+            try {
+                if (primaryProvider) {
+                    providerForEvents = primaryProvider;
+                } else {
+                    // fallback to localhost JSON-RPC (useful in local dev)
+                    providerForEvents = new ethers.providers.JsonRpcProvider('http://127.0.0.1:8545');
+                }
+            } catch (err) {
+                console.warn('Could not create event provider:', err);
+                return;
+            }
+
+            try {
+                const readContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, providerForEvents);
+
+                // LeaderboardUpdated: refresh leaderboard and player stats
+                readContract.on('LeaderboardUpdated', async (timestamp) => {
+                    console.log('Event: LeaderboardUpdated', timestamp && timestamp.toNumber ? timestamp.toNumber() : timestamp);
+                    showToast('🏆 Leaderboard updated — refreshing...');
+                    await loadLeaderboard();
+                    if (connectedAddress) await loadPlayerStats();
+                });
+
+                // DailyCompleted: a player completed daily challenge (could be many)
+                readContract.on('DailyCompleted', async (player, date) => {
+                    console.log('Event: DailyCompleted', player, date && date.toNumber ? date.toNumber() : date);
+                    // if it's the connected user, refresh their stats
+                    if (connectedAddress && player && player.toLowerCase() === connectedAddress.toLowerCase()) {
+                        showToast('⭐ Daily challenge completed — reward recorded!');
+                        await loadPlayerStats();
+                    } else {
+                        // update leaderboard only
+                        await loadLeaderboard();
+                    }
+                });
+
+                // RewardWithdrawn: someone withdrew — update pending balances
+                readContract.on('RewardWithdrawn', async (player, amount) => {
+                    console.log('Event: RewardWithdrawn', player, amount && amount.toString ? amount.toString() : amount);
+                    if (connectedAddress && player && player.toLowerCase() === connectedAddress.toLowerCase()) {
+                        showToast('💸 Your withdrawal was processed!');
+                        await loadPlayerStats();
+                    } else {
+                        // general update
+                        await loadLeaderboard();
+                    }
+                });
+
+                console.log('Listening for on-chain events (LeaderboardUpdated, DailyCompleted, RewardWithdrawn).');
+            } catch (err) {
+                console.warn('Could not attach event listeners:', err);
+            }
+        }
+
+        // attach UI handlers
         elements.connectBtn.addEventListener('click', connectWallet);
         elements.startBtn.addEventListener('click', startGame);
         elements.withdrawBtn.addEventListener('click', withdrawRewards);
@@ -773,11 +955,19 @@
                     location.reload();
                 }
             });
+
+            // also listen for chain changes and reload (because provider/contract may change)
+            window.ethereum.on('chainChanged', () => {
+                location.reload();
+            });
         }
 
+        // initial render
         createGrid(3);
         loadLeaderboard();
-        setInterval(loadLeaderboard, 30000);
+
+        // Auto-refresh leaderboard every 10 seconds for all users as a baseline
+        setInterval(loadLeaderboard, 10000);
     </script>
 </body>
 </html>

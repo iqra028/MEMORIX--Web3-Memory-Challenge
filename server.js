@@ -17,45 +17,31 @@ const deploymentInfo = JSON.parse(fs.readFileSync('deployment-info.json', 'utf8'
 const provider = new ethers.providers.JsonRpcProvider(config.blockchain.rpcUrl);
 const contractAddress = deploymentInfo.contractAddress || config.blockchain.contractAddress;
 
-// Try to load ABI — make contract optional if ABI missing
 let contractABI = null;
 let contract = null;
 let contractWithSigner = null;
+
 try {
   contractABI = require('./artifacts/contracts/MemorixGame.sol/MemorixGame.json').abi;
   contract = new ethers.Contract(contractAddress, contractABI, provider);
 } catch (err) {
-  console.warn('Could not load contract ABI or create contract instance:', err.message);
-  contract = null;
+  console.warn('Could not load contract ABI:', err.message);
 }
 
-// Owner wallet for contract interactions (NOTE: don't hardcode in production)
 let ownerWallet = null;
-if (config.blockchain.ownerPrivateKey) {
-  try {
-    ownerWallet = new ethers.Wallet(config.blockchain.ownerPrivateKey, provider);
-    if (contract) contractWithSigner = contract.connect(ownerWallet);
-  } catch (err) {
-    console.warn('Could not create owner wallet:', err.message);
-  }
-} else {
-  // fallback used in your original snippet — still warn
-  try {
-    ownerWallet = new ethers.Wallet(
-      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-      provider
-    );
-    if (contract) contractWithSigner = contract.connect(ownerWallet);
-    console.warn('Using fallback owner private key from code. Replace with config in production.');
-  } catch (err) {
-    console.warn('Could not create fallback owner wallet:', err.message);
-  }
+try {
+  ownerWallet = new ethers.Wallet(
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+    provider
+  );
+  if (contract) contractWithSigner = contract.connect(ownerWallet);
+} catch (err) {
+  console.warn('Could not create owner wallet:', err.message);
 }
 
 // In-memory state
 const activeRounds = new Map();
-const leaderboardScores = new Map(); // playerAddress => {score, level}
-const playerLevels = new Map(); // Track player levels in-memory to avoid contract sync issues
+const playerLevels = new Map();
 
 // Helper functions
 function getTodayDateNum() {
@@ -107,34 +93,25 @@ function calculateInfiniteDifficulty(level) {
 
 function calculateInfiniteScore(correctSteps, totalSteps, timeElapsedMs, timeLimitMs, level) {
   const scoring = config.infiniteMode.scoring;
-  
   const basePoints = totalSteps * scoring.basePointsPerStep;
   const percentCorrect = totalSteps > 0 ? (correctSteps / totalSteps) : 0;
-  
-  // Time bonus based on how fast they were
   const timeLeftMs = Math.max(0, timeLimitMs - timeElapsedMs);
   const timeBonus = Math.floor(timeLeftMs * scoring.timeBonusPerMs);
-  
   let score = Math.floor((basePoints * percentCorrect) + timeBonus);
   
-  // Perfect round bonus
   if (correctSteps === totalSteps && totalSteps > 0) {
     score = Math.floor(score * scoring.perfectRoundMultiplier);
   }
   
-  // Level multiplier
   score = Math.floor(score * Math.pow(scoring.levelMultiplier, Math.max(0, level - 1)));
-  
   return score;
 }
 
 function calculateDailyScore(correctSteps, totalSteps, timeElapsedMs, timeLimitMs) {
   const basePoints = totalSteps * 20;
   const percentCorrect = totalSteps > 0 ? (correctSteps / totalSteps) : 0;
-  
   const timeLeftMs = Math.max(0, timeLimitMs - timeElapsedMs);
   const timeBonus = Math.floor(timeLeftMs * 0.2);
-  
   let score = Math.floor((basePoints * percentCorrect) + timeBonus);
   
   if (correctSteps === totalSteps && totalSteps > 0) {
@@ -146,7 +123,6 @@ function calculateDailyScore(correctSteps, totalSteps, timeElapsedMs, timeLimitM
 
 function verifyRound(roundData, telemetry) {
   if (!config.antiCheat || !config.antiCheat.enabled) return { passed: true, reasons: [] };
-  
   const checks = { passed: true, reasons: [] };
   
   if (!telemetry || !telemetry.clicks || telemetry.clicks.length === 0) {
@@ -168,24 +144,11 @@ function verifyRound(roundData, telemetry) {
   return checks;
 }
 
-// Update leaderboard rankings
-function updateLeaderboardRankings(playerAddress, currentLevel, incrementalScore) {
-  if (!playerAddress) return;
-  const existing = leaderboardScores.get(playerAddress) || { level: 1, score: 0 };
-  // keep the highest level seen during the day (if player levels up, keep it)
-  const newLevel = Math.max(existing.level || 1, currentLevel || 1);
-  const newScore = (existing.score || 0) + (incrementalScore || 0);
-  leaderboardScores.set(playerAddress, { level: newLevel, score: newScore });
-}
-
-// Get player's current level (from memory or contract)
 async function getPlayerCurrentLevel(playerAddress) {
-  // Check in-memory first
   if (playerLevels.has(playerAddress)) {
     return playerLevels.get(playerAddress);
   }
   
-  // Otherwise try to fetch from contract
   try {
     if (contract) {
       const stats = await contract.playerStats(playerAddress);
@@ -197,13 +160,82 @@ async function getPlayerCurrentLevel(playerAddress) {
     console.warn('Could not fetch level from contract:', err.message);
   }
   
-  // Default to level 1
   return 1;
 }
 
-// Update player's level in memory
 function updatePlayerLevel(playerAddress, newLevel) {
   playerLevels.set(playerAddress, newLevel);
+}
+
+// Get full leaderboard sorted by level then score
+async function getFullLeaderboard() {
+  try {
+    if (!contract) return [];
+    
+    const allPlayersAddresses = await contract.getAllPlayers();
+    const leaderboard = [];
+    
+    for (const address of allPlayersAddresses) {
+      try {
+        const stats = await contract.playerStats(address);
+        leaderboard.push({
+          address: address,
+          level: stats.currentLevel.toNumber(),
+          score: stats.totalScore.toNumber(),
+          bestScore: stats.bestScore.toNumber()
+        });
+      } catch (err) {
+        console.warn(`Error fetching stats for ${address}:`, err.message);
+      }
+    }
+    
+    // Sort by level (desc), then by score (desc)
+    leaderboard.sort((a, b) => {
+      if (b.level !== a.level) return b.level - a.level;
+      return b.score - a.score;
+    });
+    
+    return leaderboard;
+  } catch (error) {
+    console.error('Error getting full leaderboard:', error);
+    return [];
+  }
+}
+
+// ---------- New: Payout countdown helpers ----------
+function getNextPayoutDateUTC(timeStr) {
+  // timeStr expected like "19:53"
+  const [hh, mm] = timeStr.split(':').map(s => parseInt(s, 10));
+  const now = new Date();
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hh, mm, 0, 0));
+  if (next.getTime() <= now.getTime()) {
+    next.setUTCDate(next.getUTCDate() + 1);
+  }
+  return next;
+}
+function formatMs(ms) {
+  const s = Math.floor(ms / 1000);
+  const hh = Math.floor(s / 3600);
+  const mm = Math.floor((s % 3600) / 60);
+  const ss = s % 60;
+  return `${hh.toString().padStart(2,'0')}:${mm.toString().padStart(2,'0')}:${ss.toString().padStart(2,'0')}`;
+}
+let payoutCountdownInterval = null;
+function startPayoutCountdownPrinter() {
+  try {
+    if (payoutCountdownInterval) clearInterval(payoutCountdownInterval);
+    payoutCountdownInterval = setInterval(() => {
+      const now = new Date();
+      const next = getNextPayoutDateUTC(config.leaderboard.updateSchedule.dailyResetTime);
+      const msLeft = Math.max(0, next.getTime() - now.getTime());
+      process.stdout.write(`\r⏳ Time until next leaderboard payout (UTC ${config.leaderboard.updateSchedule.dailyResetTime}): ${formatMs(msLeft)}    `);
+      if (msLeft === 0) {
+        process.stdout.write('\n');
+      }
+    }, 1000);
+  } catch (err) {
+    console.warn('Could not start payout countdown:', err.message);
+  }
 }
 
 // Schedule daily leaderboard payout
@@ -213,13 +245,21 @@ function scheduleLeaderboardPayout() {
     const hour = parseInt(resetTime[0]);
     const minute = parseInt(resetTime[1]);
     
-    // Run every day at specified time (server timezone) — cron format: minute hour day month weekday
-    cron.schedule(`${minute} ${hour} * * *`, async () => {
-      console.log('Running daily leaderboard payout...');
+    // Cron format: minute hour day month weekday
+    const cronExpression = `${minute} ${hour} * * *`;
+    
+    cron.schedule(cronExpression, async () => {
+      const now = new Date();
+      console.log(`\n⏰ [${now.toISOString()}] Scheduled leaderboard payout triggered!`);
+      console.log('🏆 Running daily leaderboard payout...');
       await processLeaderboardPayout();
+    }, {
+      timezone: config.leaderboard.updateSchedule.timezone || "UTC"
     });
     
-    console.log(`Leaderboard payout scheduled for ${hour}:${minute} ${config.leaderboard.updateSchedule.timezone} daily`);
+    console.log(`⏰ Leaderboard payout scheduled: "${cronExpression}" (${config.leaderboard.updateSchedule.timezone || 'UTC'})`);
+    console.log(`   Next payout at: ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} daily`);
+    startPayoutCountdownPrinter();
   } catch (err) {
     console.warn('Could not schedule leaderboard payout:', err.message);
   }
@@ -227,83 +267,90 @@ function scheduleLeaderboardPayout() {
 
 async function processLeaderboardPayout() {
   try {
-    // Sort players by level first, then score
-    const sortedPlayers = Array.from(leaderboardScores.entries())
-      .sort((a, b) => {
-        if (b[1].level !== a[1].level) return b[1].level - a[1].level;
-        return b[1].score - a[1].score;
-      })
-      .slice(0, config.leaderboard.topPlayersCount || 10);
-
-    if (sortedPlayers.length === 0) {
+    console.log('📊 Fetching full leaderboard for payout...');
+    const fullLeaderboard = await getFullLeaderboard();
+    
+    if (fullLeaderboard.length === 0) {
       console.log('No players to reward');
-      // still clear in-memory (defensive)
-      leaderboardScores.clear();
       playerLevels.clear();
       return;
     }
-
+    
+    console.log(`Found ${fullLeaderboard.length} players total`);
+    
     const topCount = config.leaderboard.topPlayersCount || 10;
-
-    // Prepare arrays sized to topCount (fill with zero-address / zeros if fewer players)
+    const topPlayers = fullLeaderboard.slice(0, topCount);
+    
+    // Prepare arrays expected by the contract
     const addresses = new Array(topCount).fill(ethers.constants.AddressZero);
     const scores = new Array(topCount).fill(0);
     const levels = new Array(topCount).fill(0);
-
-    sortedPlayers.forEach((entry, index) => {
-      addresses[index] = entry[0];
-      scores[index] = entry[1].score;
-      levels[index] = entry[1].level;
+    
+    topPlayers.forEach((entry, index) => {
+      addresses[index] = entry.address;
+      scores[index] = entry.score;
+      levels[index] = entry.level;
+      console.log(`  ${index + 1}. ${entry.address.substring(0, 6)}...${entry.address.substring(38)} - Level ${entry.level}, Score ${entry.score}`);
     });
-
+    
     if (!contractWithSigner) {
-      console.warn('Contract/signer not available — skipping on-chain leaderboard update. Logging to console instead.');
-      console.log('Would update leaderboard with:', { addresses, scores, levels });
-
-      // Still reset in-memory for next day
-      leaderboardScores.clear();
+      console.warn('Contract/signer not available - skipping on-chain update');
       playerLevels.clear();
       return;
     }
-
-    // Call contract to update leaderboard and distribute rewards
+    
     try {
-      console.log('Calling contract.updateLeaderboard(...) with top players...');
-      const tx = await contractWithSigner.updateLeaderboard(addresses, scores, levels);
-      await tx.wait();
-      console.log('✅ Leaderboard updated and rewards distributed (on-chain)');
-    } catch (err) {
-      console.error('Error while calling updateLeaderboard on chain:', err.message);
-    }
-
-    // --- NEW: Reset daily stats & levels on-chain for players we want to reset ---
-    // We'll reset the players we included in the leaderboard arrays (non-zero addresses).
-    try {
-      // create list of addresses to reset (exclude zero address)
-      const toReset = addresses.filter(a => a !== ethers.constants.AddressZero);
-      if (toReset.length > 0) {
-        // contract function resetDailyStats(address[] memory players) must exist in the contract (see solidity changes)
-        const tx2 = await contractWithSigner.resetDailyStats(toReset);
-        await tx2.wait();
-        console.log('✅ On-chain daily stats/levels reset for top players');
-      } else {
-        console.log('No top players to reset on-chain.');
+      console.log('💰 Distributing rewards to top 10...');
+      // double-check owner before sending
+      try {
+        const onChainOwner = await contract.owner();
+        if (onChainOwner.toLowerCase() !== ownerWallet.address.toLowerCase()) {
+          console.error(`Aborting: signer (${ownerWallet.address}) is not contract owner (${onChainOwner}). Transaction would revert.`);
+        } else {
+          const tx = await contractWithSigner.updateLeaderboard(addresses, scores, levels);
+          console.log('   tx submitted, hash:', tx.hash);
+          const receipt = await tx.wait();
+          console.log('   tx mined in block', receipt.blockNumber);
+          console.log('✅ Leaderboard updated and rewards distributed');
+        }
+      } catch (preErr) {
+        console.error('Pre-check failed for updateLeaderboard:', preErr && preErr.message ? preErr.message : preErr);
       }
     } catch (err) {
-      console.error('Error while calling resetDailyStats on chain:', err.message);
+      console.error('Error calling updateLeaderboard (full error):', err);
+      if (err.error && err.error.message) console.error('  nested error.message:', err.error.message);
+      if (err.reason) console.error('  reason:', err.reason);
+      if (err.data) console.error('  data:', err.data);
     }
-
-    // Clear memory maps for next day
-    leaderboardScores.clear();
+    
+    try {
+      console.log('🔄 Resetting daily stats for ALL players...');
+      const allAddresses = fullLeaderboard.map(p => p.address);
+      
+      // Reset in batches of 50 to avoid gas limits
+      const batchSize = 50;
+      for (let i = 0; i < allAddresses.length; i += batchSize) {
+        const batch = allAddresses.slice(i, i + batchSize);
+        const tx2 = await contractWithSigner.resetDailyStats(batch);
+        console.log(`   reset batch ${Math.floor(i / batchSize) + 1} - tx submitted: ${tx2.hash}`);
+        await tx2.wait();
+        console.log(`  Reset batch ${Math.floor(i / batchSize) + 1} (${batch.length} players)`);
+      }
+      
+      console.log('✅ All player stats reset');
+    } catch (err) {
+      console.error('Error calling resetDailyStats:', err && err.message ? err.message : err);
+    }
+    
     playerLevels.clear();
-
+    console.log('🎉 Leaderboard payout complete!\n');
+    
   } catch (error) {
     console.error('Error processing leaderboard payout:', error);
   }
 }
-// API Routes
 
-// Health check
+// API Routes
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
@@ -314,7 +361,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Get game config (for frontend)
 app.get('/api/config', (req, res) => {
   res.json({
     success: true,
@@ -326,7 +372,6 @@ app.get('/api/config', (req, res) => {
   });
 });
 
-// Start infinite round
 app.post('/api/round/start/infinite', async (req, res) => {
   try {
     const { playerAddress, level } = req.body;
@@ -335,7 +380,6 @@ app.post('/api/round/start/infinite', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Player address required' });
     }
     
-    // Get current level from memory/contract
     const currentLevel = level ? parseInt(level) : await getPlayerCurrentLevel(playerAddress);
     const difficulty = calculateInfiniteDifficulty(currentLevel);
     
@@ -367,7 +411,6 @@ app.post('/api/round/start/infinite', async (req, res) => {
   }
 });
 
-// Submit infinite round
 app.post('/api/round/submit/infinite', async (req, res) => {
   try {
     const { roundId, playerAddress, clicks, telemetry } = req.body;
@@ -388,7 +431,7 @@ app.post('/api/round/submit/infinite', async (req, res) => {
       if (clickedSequence[i] === round.sequence[i]) {
         correctSteps++;
       } else {
-        break; // Stop at first mistake
+        break;
       }
     }
     
@@ -400,37 +443,29 @@ app.post('/api/round/submit/infinite', async (req, res) => {
     const score = calculateInfiniteScore(correctSteps, round.steps, timeElapsedMs, round.timeLimit, round.level);
     const verification = verifyRound(round, telemetry);
     
-    // Determine next level BEFORE recording on blockchain
     let nextLevel = round.level;
     if (isPerfect && verification.passed && !timeExpired) {
       nextLevel = round.level + 1;
-      updatePlayerLevel(playerAddress, nextLevel); // Update in-memory immediately
+      updatePlayerLevel(playerAddress, nextLevel);
       console.log(`Level up! ${playerAddress} -> Level ${nextLevel}`);
     }
     
-    // Record on blockchain (if available)
     let txHash = null;
-    
     if (verification.passed && contractWithSigner) {
       try {
         const tx = await contractWithSigner.recordInfiniteRound(
           playerAddress,
           score,
-          nextLevel, // Send the NEXT level to contract
+          nextLevel,
           timeElapsedMs,
           passed
         );
         const receipt = await tx.wait();
         txHash = receipt.transactionHash;
       } catch (err) {
-        console.warn('Error recording infinite round on chain:', err.message);
+        console.warn('Error recording infinite round:', err.message || err);
       }
-    } else if (!contractWithSigner) {
-      console.warn('contractWithSigner not available — skipping on-chain record for infinite round');
     }
-    
-    // Update leaderboard with the NEXT level (if they leveled up)
-    updateLeaderboardRankings(playerAddress, nextLevel, score);
     
     activeRounds.delete(roundId);
     
@@ -458,7 +493,6 @@ app.post('/api/round/submit/infinite', async (req, res) => {
   }
 });
 
-// Get daily challenge status
 app.get('/api/daily-challenge/status/:address', async (req, res) => {
   try {
     const { address } = req.params;
@@ -472,10 +506,6 @@ app.get('/api/daily-challenge/status/:address', async (req, res) => {
         const status = await contract.getDailyStatus(dateNum, address);
         triesUsed = status.triesUsed.toNumber();
         completed = status.completed;
-      } else {
-        // If no contract, assume zero for demo/testing
-        triesUsed = 0;
-        completed = false;
       }
     } catch (err) {
       console.warn('Error fetching daily status:', err.message);
@@ -495,7 +525,6 @@ app.get('/api/daily-challenge/status/:address', async (req, res) => {
   }
 });
 
-// Start daily challenge
 app.post('/api/round/start/daily', async (req, res) => {
   try {
     const { playerAddress } = req.body;
@@ -505,8 +534,6 @@ app.post('/api/round/start/daily', async (req, res) => {
     }
     
     const dateNum = getTodayDateNum();
-    
-    // Check status
     let triesUsed = 0;
     let completed = false;
     
@@ -515,9 +542,6 @@ app.post('/api/round/start/daily', async (req, res) => {
         const status = await contract.getDailyStatus(dateNum, playerAddress);
         triesUsed = status.triesUsed.toNumber();
         completed = status.completed;
-      } else {
-        triesUsed = 0;
-        completed = false;
       }
       
       if (triesUsed >= config.dailyChallenge.maxTriesPerDay) {
@@ -576,7 +600,6 @@ app.post('/api/round/start/daily', async (req, res) => {
   }
 });
 
-// Submit daily challenge
 app.post('/api/round/submit/daily', async (req, res) => {
   try {
     const { roundId, playerAddress, clicks, telemetry } = req.body;
@@ -597,7 +620,7 @@ app.post('/api/round/submit/daily', async (req, res) => {
       if (clickedSequence[i] === round.sequence[i]) {
         correctSteps++;
       } else {
-        break; // Stop at first mistake
+        break;
       }
     }
     
@@ -634,15 +657,9 @@ app.post('/api/round/submit/daily', async (req, res) => {
             message: 'You already completed today\'s challenge!'
           });
         }
-        console.warn('Error recording daily challenge on chain:', err.message);
+        console.warn('Error recording daily challenge:', err.message || err);
       }
-    } else if (!contractWithSigner) {
-      console.warn('contractWithSigner not available — skipping on-chain record for daily challenge');
     }
-    
-    // Update leaderboard
-    const currentLevel = await getPlayerCurrentLevel(playerAddress);
-    updateLeaderboardRankings(playerAddress, currentLevel, score);
     
     activeRounds.delete(roundId);
     
@@ -671,7 +688,6 @@ app.post('/api/round/submit/daily', async (req, res) => {
   }
 });
 
-// Get player stats
 app.get('/api/player/:address/stats', async (req, res) => {
   try {
     if (!contract) {
@@ -680,7 +696,6 @@ app.get('/api/player/:address/stats', async (req, res) => {
     const stats = await contract.playerStats(req.params.address);
     const pendingRewards = await contract.pendingRewards(req.params.address);
     
-    // Update in-memory level tracking
     const level = stats.currentLevel.toNumber();
     updatePlayerLevel(req.params.address, level);
     
@@ -703,40 +718,24 @@ app.get('/api/player/:address/stats', async (req, res) => {
   }
 });
 
-// Get leaderboard
+// Get full leaderboard (all players, sorted)
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    if (!contract) {
-      // fallback: return local leaderboard map sorted
-      const formatted = Array.from(leaderboardScores.entries())
-        .sort((a,b) => {
-          if (b[1].level !== a[1].level) return b[1].level - a[1].level;
-          return b[1].score - a[1].score;
-        })
-        .map((entry, idx) => ({
-          rank: idx + 1,
-          address: entry[0],
-          score: entry[1].score,
-          level: entry[1].level
-        }));
-      return res.json({ success: true, leaderboard: formatted, nextReset: config.leaderboard.updateSchedule.dailyResetTime });
-    }
+    const fullLeaderboard = await getFullLeaderboard();
     
-    const leaderboard = await contract.getLeaderboard();
-    
-    const formattedLeaderboard = leaderboard
-      .map((entry, index) => ({
-        rank: index + 1,
-        address: entry.player,
-        score: entry.score.toString(),
-        level: entry.level
-      }))
-      .filter(e => e.address !== ethers.constants.AddressZero);
+    const formattedLeaderboard = fullLeaderboard.map((entry, index) => ({
+      rank: index + 1,
+      address: entry.address,
+      score: entry.score,
+      level: entry.level,
+      bestScore: entry.bestScore
+    }));
     
     res.json({ 
       success: true, 
       leaderboard: formattedLeaderboard,
-      nextReset: config.leaderboard.updateSchedule.dailyResetTime
+      nextReset: config.leaderboard.updateSchedule.dailyResetTime,
+      totalPlayers: formattedLeaderboard.length
     });
   } catch (error) {
     console.error('Error fetching leaderboard:', error);
@@ -744,7 +743,6 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
-// Get player rounds
 app.get('/api/player/:address/rounds', async (req, res) => {
   try {
     if (!contract) {
@@ -753,7 +751,6 @@ app.get('/api/player/:address/rounds', async (req, res) => {
     const roundIds = await contract.getPlayerRounds(req.params.address);
     const rounds = [];
     
-    // fetch last up to 20 rounds
     const startIdx = Math.max(0, roundIds.length - 20);
     for (let i = startIdx; i < roundIds.length; i++) {
       const id = roundIds[i];
@@ -777,9 +774,20 @@ app.get('/api/player/:address/rounds', async (req, res) => {
   }
 });
 
+// Manual admin trigger for testing
+app.post('/api/admin/trigger-payout', async (req, res) => {
+  try {
+    console.log('\n🔔 Admin triggered leaderboard payout (manual).');
+    await processLeaderboardPayout();
+    res.json({ success: true, message: 'Triggered leaderboard payout (see server logs).' });
+  } catch (err) {
+    console.error('Error in manual trigger:', err);
+    res.status(500).json({ success: false, error: err.message || String(err) });
+  }
+});
+
 app.get('/', (req, res) => res.send('Memorix Backend Server is running'));
 
-// Start server
 const PORT = config.server.port || 3001;
 app.listen(PORT, () => {
   console.log(`\n🎮 Memorix Backend Server running on port ${PORT}`);
@@ -788,6 +796,70 @@ app.listen(PORT, () => {
   console.log(`⏰ Leaderboard resets daily at ${config.leaderboard.updateSchedule.dailyResetTime} UTC`);
   console.log(`\n✅ Server ready!\n`);
   
-  // Schedule leaderboard payout
-  scheduleLeaderboardPayout();
+  // Startup diagnostics
+  (async () => {
+    try {
+      console.log('🔎 Running startup blockchain diagnostics...');
+      if (!contract) {
+        console.warn('⚠️ Contract instance not available (ABI load failed or incorrect path).');
+      } else {
+        try {
+          const ownerOnChain = await contract.owner();
+          console.log(`   Contract owner on-chain: ${ownerOnChain}`);
+        } catch (err) {
+          console.warn('   Could not read contract.owner():', err.message);
+        }
+      }
+
+      if (!ownerWallet) {
+        console.warn('⚠️ ownerWallet not available — signer not created.');
+      } else {
+        console.log(`   Owner wallet address (local signer): ${ownerWallet.address}`);
+      }
+
+      if (contract && ownerWallet) {
+        try {
+          const ownerOnChain = await contract.owner();
+          if (ownerOnChain.toLowerCase() !== ownerWallet.address.toLowerCase()) {
+            console.warn('❗ Signer address DOES NOT MATCH contract owner — on-chain onlyOwner calls will revert.');
+            console.warn(`   on-chain owner: ${ownerOnChain} | signer: ${ownerWallet.address}`);
+          } else {
+            console.log('   Signer matches contract owner — on-chain admin calls should be authorized.');
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      try {
+        const bal = await provider.getBalance(contractAddress);
+        console.log(`   Contract ETH balance: ${ethers.utils.formatEther(bal)} ETH`);
+      } catch (err) {
+        console.warn('   Could not fetch contract balance:', err.message);
+      }
+
+      try {
+        if (contract) {
+          const pool = await contract.leaderboardTotalPool();
+          console.log(`   Contract leaderboardTotalPool (on-chain): ${ethers.utils.formatEther(pool)} ETH`);
+        }
+      } catch (err) {
+        // not critical
+      }
+
+    } catch (err) {
+      console.warn('Startup diagnostics failed:', err.message);
+    }
+
+    // Start the payout schedule after diagnostics
+    scheduleLeaderboardPayout();
+  })();
+});
+
+// Global error handlers for better debugging
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
 });
